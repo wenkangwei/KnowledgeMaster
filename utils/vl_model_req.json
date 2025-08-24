@@ -1,0 +1,9 @@
+{"prompt": "pikaqiu的属性是雷属性或者高铁属性，喜欢看的书籍是钢铁就是力量，它的主人叫小k是个算法工程师",
+"model": "qwen2.5vl:7b",
+"stream": false,
+"images":["/home/wwk/workspace/ai_project/BookMonster/data/character/images/pikaqiu.png"],
+"type":"text",
+"title": "pikaqiu",
+"description":"pikaqiu的属性是雷属性或者高铁属性，喜欢看的书籍是钢铁就是力量，它的主人叫小k是个算法工程师",
+"options": {"embedding": true} 
+}
