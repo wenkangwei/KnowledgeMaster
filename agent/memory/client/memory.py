@@ -14,7 +14,7 @@ from  memory.client.redis import Reids_Client
 from  memory.client.milvus import Milvus_Client
 from common.context import Context
 import numpy as np
-from vectordb import Memory
+# from vectordb import Memory
 
 class MemoryClient:
     def __init__(self, context):
@@ -26,9 +26,9 @@ class MemoryClient:
         # self.mysql_client = MySQL_Client(context)
         self.redis_client= None
         self.mysql_client = None
-        vdb_config = context.config['memory']['vectordb']
-        save_path = os.path.join(vdb_config.get("data_root","."), vdb_config.get("file_name","vectordb.txt"))
-        self.memory = Memory(save_path)
+        # vdb_config = context.config['memory']['vectordb']
+        # save_path = os.path.join(vdb_config.get("data_root","."), vdb_config.get("file_name","vectordb.txt"))
+        # self.memory = Memory(save_path)
     def test_es(self):
         data = {"title":"Test", "content":"Hello"}
         index= "test_index"

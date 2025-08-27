@@ -1,5 +1,7 @@
 #!/bin/bash
+mode='1'
 
+[ -n $1 ] && mode=$1
 
 cd /home/wwk/workspace/ai_project/BookMonster/utils
 # 将图片转为 Base64
@@ -14,6 +16,7 @@ cd /home/wwk/workspace/ai_project/BookMonster/utils
 IMAGE_PATH="/home/wwk/workspace/ai_project/BookMonster/data/character/images/pikaqiu.png"
 PROMPT="你好, 你猜猜图片里面是谁"
 IMAGE_BASE64=$(base64 -i $IMAGE_PATH  | tr -d '\n')
+
 # curl http://0.0.0.0:8000/api/generate_bookmonster
 
 # curl -X POST http://localhost:8000/api/generate_bookmonster -d '{"prompt": "'"$PROMPT"'", "model": "qwen2.5-vl:7b", "stream": false}'
@@ -47,7 +50,62 @@ IMAGE_BASE64=$(base64 -i $IMAGE_PATH  | tr -d '\n')
 # curl -X POST http://localhost:8000/enemy_action -H "Content-Type: application/json" -d @chat_model_req.json
 
 
-curl -X POST http://localhost:11434/api/embeddings -H "Content-Type: application/json" -d @vl_model_req.json
+# curl -X POST http://localhost:11434/api/embeddings -H "Content-Type: application/json" -d @vl_model_req.json
+
+
+
+
+
+# curl -X POST http://localhost:8000/get_database_list \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "book_id":"640507"
+#   }'
+
+
+
+# curl -X POST http://localhost:8000/get_card_list \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "book_id":"640507"
+#   }'
+
+if [ $mode -eq 1 ];then
+curl -X POST http://localhost:8000/get_database_list \
+  -H "Content-Type: application/json" \
+  -d '{
+    "book_id":"640507"
+  }'
+elif [ $mode -eq 2 ];then
+curl -X POST http://localhost:8000/get_card_list \
+  -H "Content-Type: application/json" \
+  -d '{
+    "book_id":"640507"
+  }'
+
+elif [ $mode -eq 3 ];then
+curl -X POST http://localhost:8000/delete_books_list \
+  -H "Content-Type: application/json" \
+  -d '{
+    "indices": ["abstract","mmoe.pdf","pdf_1756002381144.pdf","pdf_1756003036115.pdf","pdf_1756003874791.pdf","pdf_1756012414300.pdf"]
+  }'
+elif [ $mode -eq 4 ];then
+    curl -X POST http://localhost:8000/chat \
+    -H "Content-Type: application/json" \
+    -d '{
+        "pdf_path": "/home/wwk/workspace/ai_project/BookMonster/data/upload/pdf_1756002702477.pdf",
+        "image_path": "/home/wwk/workspace/ai_project/BookMonster/data/upload/image_1755920536461.jpg",
+        "prompt": "请分析这个文档并提取关键信息生成知识卡片"
+    }'
+elif [ $mode -eq 5 ];then
+curl -X POST http://localhost:8000/chat \
+    -H "Content-Type: application/json" \
+    -d '{
+        "pdf_path": "",
+        "image_path": "",
+        "prompt": "请调用天气API来看看今天北京天气怎么样"
+    }'
+fi
 
 #  请求embedding向量测试
 # curl http://localhost:11434/api/embeddings \

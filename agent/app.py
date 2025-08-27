@@ -1,17 +1,19 @@
+# from cgi import test
 import collections
-from heapq import merge
-from pickle import NONE
-from memory.client.memory import MemoryClient
+# from heapq import merge
+# from pickle import NONE
+# from BookMonster.agent.app import gb_state
+import httpx  # 替代requests，支持异步
+# from memory.client.memory import MemoryClient
 from common.context import Context
 import hashlib
 
-import re
+# import re
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 from datetime import datetime
-import httpx  # 替代requests，支持异步
 import logging
 
 from dis import Instruction
@@ -81,7 +83,8 @@ class Environment():
                                 tools=[],
                                 timeout= 60,
                                 context=context) 
-        self.scheduel_agent = Agent(model= "qwen2.5:7b", emb_model_name = "nomic-embed-text:latest", tools = [], timeout= 60)
+        self.scheduel_agent = Agent(model= "qwen2.5:7b", emb_model_name = "nomic-embed-text:latest", tools = tools_dict, timeout= 60)
+        self.recog_agent = Agent(model= "qwen2.5:3b", emb_model_name = "nomic-embed-text:latest", tools = tools_dict, timeout= 60)
         self.monsters = {}
         self.task_queue = collections.defaultdict(list)
         self.chunk_list = collections.defaultdict(list)
@@ -89,7 +92,7 @@ class Environment():
         self.current_task_id = None
         # self.enermy_monsters_states.append(MonsterState(tmp_data))
     
-    def compute_per_chunk_data(self, task_id, prompt, chunk, chunk_ids,debug=False):
+    def compute_batch_chunk_data(self, task_id, prompt, chunk, chunk_ids,debug=False):
         if len(chunk) != len(chunk_ids):
             print("len(chunk)  != len(chunk_ids) ", len(chunk) , ", ", len(chunk_ids))
             return [] 
@@ -117,9 +120,11 @@ class Environment():
             if chunk_id in parsed_qa:
                 points = parsed_qa[chunk_id].get("points",[])
                 for v in points:
-                    v['chunk_id'] = str(task_id+"_"+chunk_id).lower()
+                    v['point_id'] = str(task_id)+"_"+ str(chunk_id).lower()
                 data = {
-                    "emb_id": str(task_id+"_"+chunk_id).lower(),
+                    "book_id": str(task_id).lower(),
+                    "chunk_id": str(chunk_id).lower(),
+                    "emb_id": str(task_id)+"_"+ str(chunk_id).lower(),
                     "chunk_emb": chunk_emb[i],
                     "points":points,
                     'content': chunk[i]
@@ -127,17 +132,66 @@ class Environment():
                 res.append(data)
         return  res
 
-    def generate_qa(self, task_id, chunks, prompt, request):
-        """模拟大模型分批处理PDF
+    def generate_qa(self, task_id, book_nm, chunks, prompt, request):
+        f"""模拟大模型分批处理PDF
         task_id: 对应数据库id 或者名称 用于es 里面的index_name
         chunks: list of dictionary data
         prompt: prompt for llm
+
+        #书籍结构
+            book:
+                book_id
+                chunks:
+                    chunk_id1:
+                        emb_id
+                        emb_vector
+                        points:
+                            point1, difficulty
+                            point2, difficulty
+                            point3, difficulty
+                    chunk_id2
+                    chunk_idn
 
         """
         
         self.task_queue[task_id] = []
         self.task_status[task_id] = {"status": "running"}
         self.current_task_id = task_id
+
+
+        # test elastic search
+        book_id = 'mmoe.pdf'
+        test_data = {
+            "1234": {
+            "chunk_id": "1234",
+            "emb_id": "mmoe.pdf_1234",
+            "content": "React组件从创建到销毁的完整过程，包括挂载、更新和卸载三个阶段。",
+            "points": [
+            { "point": "组件挂载过程", "difficulty": "中级" },
+            { "point": "状态更新机制", "difficulty": "中级" },
+            { "point": "性能优化技巧", "difficulty": "高级" },
+            ],
+        },
+
+        "45678":{
+            "chunk_id": "45678",
+            "emb_id": "mmoe.pdf_44567",
+            "content": "6666React组件从创建到销毁的完整过程，包括挂载、更新和卸载三个阶段。",
+            "points": [
+            { "point": "挂载过程", "difficulty": "中级" },
+            { "point": "状态机制", "difficulty": "中级" },
+            { "point": "性能技巧", "difficulty": "高级" },
+            ],
+        },
+        }
+
+        print("Create Doc..")
+        ret = self.generation_agent.memory_client.es_client.batch_create_doc(book_id, test_data)
+        print("Searching Doc.. : ", book_id)
+        # result = self.generation_agent.memory_client.es_client.search(index= book_id, keyword=book_id, fields=['_index','_id'])
+        # result = self.generation_agent.memory_client.es_client.get_all_documents_search_after(book_id)
+        result = self.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
+        print("test search result: ", result)
 
         try:
             print("start generate_qa")
@@ -163,7 +217,7 @@ class Environment():
                     if (i%batch_size == 0) or len(chunks) - chunk_id <= batch_size:
                         print("generating qa when i=",i)
                         debug = True if i<6 else False
-                        chunk_data = self.compute_per_chunk_data(task_id, prompt, chunk_batch_ls, chunk_id_ls, debug)
+                        chunk_data = self.compute_batch_chunk_data(task_id, prompt, chunk_batch_ls, chunk_id_ls, debug)
                         chunk_batch_ls.clear()
                         chunk_id_ls.clear()
 
@@ -177,12 +231,14 @@ class Environment():
                         
                         for data in chunk_data:
                             emb_id = data['emb_id']
-                            emb = data['chunk_emb']
+                            emb = data.pop("chunk_emb")
                             content = data['content']
                             id_content_map.append( {"emb_id": emb_id, "content":content}) 
                             embeddings_ls["emb_id"].append(emb_id) 
                             embeddings_ls["chunk_emb"].append(emb) 
-                            self.task_queue[task_id].extend(data['points'])
+                            data['book_nm'] = book_nm
+                            # self.task_queue[task_id].extend(data['points'])
+                            self.task_queue[task_id].append(data)
                         print(f"Task {task_id} - 已处理 {chunk_id} chunks 和 {len( self.task_queue[task_id])} 条QA")
                 except Exception as e:
                     print("Chunk Loop Exception: ", str(e))
@@ -193,16 +249,21 @@ class Environment():
             print(f"task_queue[{task_id}] total size: ", len(self.task_queue[task_id]))
             # save faiss vectors
             print("saving embeddings with size: ",len( embeddings_ls['chunk_emb']), "emb_id size: ",len(embeddings_ls["emb_id"]))
+            assert len( embeddings_ls['chunk_emb']) == len(embeddings_ls["emb_id"]), "chunk emb size is not equal to emb_id size"
             self.generation_agent.save_embedding( embeddings_ls['chunk_emb'], embeddings_ls["emb_id"], merge_index=False)
-            self.generation_agent.memory_client.memory.save([v['content'] for v in id_content_map], id_content_map)
+            # self.generation_agent.memory_client.memory.save([v['content'] for v in id_content_map], id_content_map)
             # save generated questions- answers pair to es. Don't save origin text for saving storage
             print("Saving data to elastic search")
             doc_dict= {}
+            # index_name = book_id
             index_name = str(task_id).lower()
-            for doc_id, doc in enumerate(self.task_queue[task_id]):
+            for _, doc in enumerate(self.task_queue[task_id]):
+                doc_id = doc['emb_id']
                 doc_dict[doc_id] = doc
             ret = self.generation_agent.memory_client.es_client.batch_create_doc(index_name, doc_dict)
             print("QA doc Saved with ret = ", ret)
+
+            
 
             #Send email to user
             # self.scheduel_agent.chat_with_tools()
@@ -214,7 +275,7 @@ class Environment():
             print("finally")
             self.task_status[task_id] = {"completed": True, "status":"completed"}
     
-    def intention_recog(self, inputs:str):
+    async def intention_recog(self, inputs:str):
         prompt = """
         你是一个意图识别专家， 你能通过下面用户发送的请求识别到用户需要什么功能.
         下面有几个支持的功能
@@ -223,11 +284,11 @@ class Environment():
         3. unkown: 如果你识别不出来，就返回unknown
         要求： 你只能从返回这个列表[generation_cards, chat, unknown]里的其中一个选项， 不能返回任何无关的字符内容
         """
-        result= self.scheduel_agent.chat([{"role":"system", "content": prompt},
+        result= await self.recog_agent.chat([{"role":"system", "content": prompt},
                                 {"role":"user", "content":inputs}
                                 ])
         result = result.strip()
-        log_operation(f"result:{result}")
+        log_operation(f"result:", result)
         if result not in  ["generation_cards",'chat', "unknown"]:
             result = "unknown"
         return result
@@ -284,6 +345,30 @@ class Environment():
         try:
             print("Processing generate_cards..")
             log_operation("Processing generate_bookmonster prompt:", prompt)
+
+
+            kl_card_template="""
+             最高优先级要求: 
+        1. 你只能按照下面的JSON格式输出并填写内容， 不要输出任何非json格式的内容。输出只能是{符合开头,  以}符合结尾
+        2. 输入格式: 用户输入的多个chunk以 ###chunk开头， 比如###chunk1 就代表chunk_id就是 chunk1.  之后跟着chunk的内容. 以此类推去提取每个chunk的chunk_id和对应内容
+        3. 任务: 你要准确识别每个chunk 并且对每个chunk的内容进行精简地提取出3条关键具体知识点。如果知识点有数据支持请把重要数据也放到总结里。每个知识点用1-2句话总结。 这些知识点被放到 “points”列表里
+        3. "points" 列表里每条json含有 point， difficulty字段分别对应知识点，以及知识点难度。知识点难度从1-10 数字范围里取，1表示最简单，10表示最难。
+        4. 每条知识点不能重复。
+        5. 下面是给你的参考返回例子的格式：
+        {
+                “chunk1”:{
+                    "points": [{"point":"", "difficulty":"1"},
+                                {"point":"", "difficulty":"2"},
+                    ]
+                },
+                “chunk2”:{
+                    "points": [{"point":"", "difficulty":"3"},
+                                {"point":"", "difficulty":"4"},
+                    ]
+                }
+                    
+        }
+            """
             
             # 调用Ollama的生成API
             print("kl_card_template:  ", kl_card_template)
@@ -291,11 +376,11 @@ class Environment():
             book_nm= pdf_path.split("/")[-1]
             sections = self.generation_agent.parse_file(pdf_path)
             print("section size: ", len(sections), "\n section[0]: ", sections[0])
-            task_id = hash_to_6digit_sha256(book_nm)
+            book_id = hash_to_6digit_sha256(book_nm)
             
             # await gb_state.generate_batch_qa(task_id, sections,template2)
             print("Response result:", str(ret_response))
-            thread = threading.Thread(target=self.generate_qa, args=(task_id, sections,kl_card_template, request))
+            thread = threading.Thread(target=self.generate_qa, args=(book_id,book_nm, sections,kl_card_template, request))
             thread.start()
             ret_response["response"] = "generating knowledge cards. Please wait for few seconds."
             logging.info(f"response: {ret_response}" )
@@ -304,39 +389,48 @@ class Environment():
             raise HTTPException(status_code=422, detail=f"生成失败: {str(e)}")
         return ret_response
 
-    def pipeline(self, request: dict):
+    async def pipeline(self, request: dict):
         inputs = str(request)
         response = {
             "response":"",
             "card_list":[]
         }
         chat_message = []
-        recog_res = self.intention_recog(inputs)
+        recog_res = await self.intention_recog(inputs)
         if recog_res ==  "generation_cards":
             if not self.current_task_id or self.task_status[self.current_task_id].get("status","") != "running":
+                print("start generation task in background")
                 # start generation task in background
                 self.generate_cards(request)
                 # return response
                 response['response'] = f"开始帮您生成知识库中 task_id: {self.current_task_id} 请稍候再请求生成。 可以先聊聊别的哦~"
                 return response
-                pass
             else:
+                print(" generation_cards task is still running in background")
                 # return pending response
                 status = self.task_status[self.current_task_id]
                 response['response'] = f"上个任务还在跑呢 task_id: {self.current_task_id} status: {status}。 可以先聊聊别的哦~"
                 return response
         elif recog_res ==  "chat":
+            print("start chatting task")
             # use chat with rag tools to search note card
             chat_message.extend([
-                {"role": "system", "content": "你是一个知识库助手，能够准确识别用户想要查询的知识点，解答用户问题"},
+                {"role": "system", "content": "你是一个知识库助手，能够准确识别用户想要查询的知识点，解答用户问题， 有必要的话可以调用提供给你的tools"},
                 {"role": "user", "content": request.get("prompt","")}
             ])
-            self.scheduel_agent.chat_with_tools(chat_message, tools_dict)
+            res = await self.scheduel_agent.chat_with_tools(chat_message, tools_dict)
+            response['response']= res
             pass
         elif recog_res == "unknown":
+            print("get unknown chatting task")
             # simply chat
+            chat_message.extend([
+                {"role": "user", "content": request.get("prompt","")}
+            ])
+            res = await self.scheduel_agent.chat_with_tools(chat_message,tools_dict)
+            response['response']= res
             pass
-        return
+        return response
 
 
     
@@ -360,10 +454,76 @@ def log_operation(action: str, details: str, object_id: str = None, level: str =
     getattr(logging, level)(f"{action}: {details}")
 
 
+@app.post("/get_database_list")
+async def database_list(request : dict):
+    resp = {"status":"success", "msg":"", "index_list":[]}
+    try:
+        result = env.generation_agent.memory_client.es_client.get_all_index_values()
+        resp['index_list'] = result
+    except Exception as e:
+        logging.error(f"Failed to load database list error: {str(e)}")
+        resp['status'] = "failed"
+        resp['msg'] = str(e)
+    return resp
 
 
-@app.post("/generate_cards")
-async def generate_cards(request : dict):
+@app.post("/delete_books_list")
+async def delete_books_list(request : dict):
+    resp = {"status":"success", "msg":""}
+    try:
+        indices = request['indices']
+        response = env.generation_agent.memory_client.es_client.delete_indices(indices)
+        print("delete_books_list response: ",response)
+    except Exception as e:
+        logging.error(f"delete_books_list failed:  {str(e)}")
+        raise HTTPException(status_code=422, detail=f"delete_books_list failed:  {str(e)}")
+    return resp
+    
+
+
+
+@app.post("/get_card_list")
+async def get_card_list(request : dict):
+    """
+    request:
+        {"book_id": "id"}
+    response:
+        {"status":"success", msg:"" ,"card_list": [{"card1":{"points":[{"point":"", "difficulty"},{"point":"", "difficulty"}]} }]}
+    """
+    # return generated  knowledge index list
+    #切换到获取知识库tab 时调用
+    # result = self.generation_agent.memory_client.es_client.search(index= book_id, keyword=book_id, fields=['_index','_id'])
+    # result = self.generation_agent.memory_client.es_client.get_all_documents_search_after(book_id)
+    resp = {"status":"success", "msg":"", "card_list":[]}
+    try:
+        book_id = request['book_id']
+        result = env.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
+        resp["msg"]=""
+        resp['card_list']= [ r["doc"] for r in result]
+    except Exception as e:
+        logging.error(f"get_card_list failed:  {str(e)}")
+        raise HTTPException(status_code=422, detail=f"get_card_list failed:  {str(e)}")
+        
+    return resp
+
+@app.post("/get_card_recom_realtime")
+async def get_card_recom_realtime(request : dict):
+    # return cards of selected knowledge set
+    # 请求大模型提取自主推荐cards 到用户邮箱 以及推荐列表
+
+    return
+
+
+@app.post("/get_card_recom")
+async def get_card_recom(request : dict):
+    # return cards of selected knowledge set
+    # 请求大模型提取自主推荐cards 到用户邮箱 以及推荐列表
+
+    return
+
+@app.post("/chat")
+async def chat(request : dict):
+    # chat dialog task.
     """
     调用Ollama生成回复
     输入request:
@@ -380,48 +540,20 @@ async def generate_cards(request : dict):
     }
 
     """
-    ret_response = {
+    response = {
        "status":"success",
        "response": ""
     }
-    print("generate monster request: ", request)
-    images = request.get('images_path',"")
-    prompt = request.get('prompt_path', "")
-    pdf_path = request.get('pdf_path',"")
+    print("chat request: ", request)
     
     try:
-        print("Processing generate_bookmonster description: ", description)
-        log_operation("Processing generate_bookmonster prompt:", prompt)
-        
-        # 调用Ollama的生成API
-
-        print("question_template:  ", question_template)
-
-        
-        # parse PDF
-        book_nm= pdf_path.split("/")[-1]
-        sections = gb_state.generation_agent.parse_file(pdf_path)
-        book_title = sections[0].get("title", "") 
-        print("section size: ", len(sections), "\n section[0]: ", sections[0])
-        
-        task_id = hash_to_6digit_sha256(book_nm)
-        gb_state.task_queue[task_id] = []
-        
-        # await gb_state.generate_batch_qa(task_id, sections,template2)
-        ret_response['skill'] = gb_state.task_queue[task_id]
-        ret_response['monster_id'] = task_id
-        ret_response['id'] = str(task_id)
-        ret_response["book_nm"] = book_nm
-        # 这里先不用mcp 生成图片的接口， 而是直接随机用生成的monster图片
-        # log_operation("Response result:", str(ret_response))
-        print("Response result:", str(ret_response))
-        thread = threading.Thread(target=gb_state.generate_qa, args=(task_id, sections, question_template))
-        thread.start()
-        logging.info(f"Mdata: {monster_data}" )
+        response = await env.pipeline(request)
     except Exception as e:
         # raise HTTPException(status_code=422, detail=f"生成失败: {str(e)}")
-        logging.error(f"generate_bookmonster error: {str(e)}")
-    return
+        logging.error(f"chat error: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"chat failed:  {str(e)}")
+    return response
+
 
 
 # 调试接口（打印原始请求）
@@ -437,4 +569,5 @@ if __name__ == "__main__":
     os.makedirs("generated_images", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
     
+    # 启动大模型自动规划后台线程， 让大模型自己决定什么时候调用起自己进行学习总结
     uvicorn.run(app, host="localhost", port=8000)

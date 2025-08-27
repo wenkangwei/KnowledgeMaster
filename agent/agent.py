@@ -67,7 +67,7 @@ class Agent(BaseAgent):
         return response.choices[0].message.content
     
 
-    async def chat_with_tools(self,  messages: List[Dict], tools: List[Dict], model_name: str="", prompt: str="", stream: bool=False):
+    async def chat_with_tools(self, messages: List[Dict], tools_dict: Dict, model_name: str="", prompt: str="", stream: bool=False):
         """
         与LLM对话并处理工具调用
         
@@ -79,14 +79,17 @@ class Agent(BaseAgent):
             prompt = """
             请严格下面要求回答，不得添加虚构信息：
             要求：
-            1. 如果有可以适合的tool call,必须包含tool call返回的信息 且确保真实
+            1. 如果有可以适合的tool call,必须包含tool call返回的信息
             2. 禁止添加任何数据中不存在的信息
             """
         if model_name == "":
             model_name = self.model_name
         
-        if tools == []:
+        if not tools_dict["tools_desc"]:
             tools = self.tools
+        else:
+            tools = tools_dict["tools_desc"]
+        print("chat_with_tools: tools= ",tools)
         # 第一步：获取LLM初始响应
         response = self.client.chat.completions.create(
             model=model_name,  # 或 gpt-4-turbo
@@ -96,7 +99,7 @@ class Agent(BaseAgent):
                     "content": prompt
                 }
             ]+messages,
-            tools=tools['tools_desc'],
+            tools=tools,
             tool_choice="auto",  # 让模型决定是否调用工具
             timeout=self.timeout,
            
@@ -119,6 +122,7 @@ class Agent(BaseAgent):
             
             # 调用对应的工具函数
             if function_name in tools_dict['tools_func']:
+                print("chat_with_tools: calling tools=",function_name, " function_args=",function_args)
                 function_response = tools_dict['tools_func'][function_name](**function_args)
             else:
                 function_response = {"error": f"未知工具: {function_name}"}

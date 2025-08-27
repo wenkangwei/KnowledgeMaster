@@ -33,7 +33,7 @@ def get_current_weather(location, unit="celsius"):
         "type": "function",
         "function": {
             "name": "get_current_weather",
-            "description": "模拟天气API调用",
+            "description": "获取天气信息API调用",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -197,10 +197,12 @@ def gen_tools_dict(funcs):
         func_desc_json = json.loads(func_desc)
         try:
             func_name = func_desc_json["function"].get("name")
+            print("func_name info: ")
+            print(func_name)
         except Exception as e:
             raise ValueError(f"Function doc description must be JSON format and contain key 'function' Got e= {e}")
-        tool_funcs.append(func_name)
-        tool_desc.append(func_desc)
+        tool_funcs.append(func)
+        tool_desc.append(func_desc_json)
     tools_dict = {
             "tools_desc": tool_desc,
             "tools_func": tool_funcs
