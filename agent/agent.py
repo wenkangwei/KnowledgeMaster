@@ -133,7 +133,7 @@ class Agent(BaseAgent):
                 function_response = tools_dict['tools_func'][function_name](**function_args)
             else:
                 function_response = {"error": f"未知工具: {function_name}"}
-            
+                print("chat_with_tools: function_response",function_response)
             # 将工具响应添加到对话历史
             messages.append({
                 "tool_call_id": tool_call.id,
@@ -143,6 +143,7 @@ class Agent(BaseAgent):
             })
         
         # 第三步：将工具结果发送给LLM进行总结
+        print("second response completion from LLM")
         second_response =  self.client.chat.completions.create(
             model=model_name,
             messages=messages,

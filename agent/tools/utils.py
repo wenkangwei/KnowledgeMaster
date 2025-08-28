@@ -197,7 +197,7 @@ def gen_tools_desc(funcs):
 def gen_tools_dict(funcs):
     from inspect import signature
     tool_desc = []
-    tool_funcs = []
+    tool_funcs = {}
     for func in funcs:
         func_desc = func.__doc__
         func_desc_json = json.loads(func_desc)
@@ -207,7 +207,7 @@ def gen_tools_dict(funcs):
             print(func_name)
         except Exception as e:
             raise ValueError(f"Function doc description must be JSON format and contain key 'function' Got e= {e}")
-        tool_funcs.append(func)
+        tool_funcs[func_name] = func
         tool_desc.append(func_desc_json)
     tools_dict = {
             "tools_desc": tool_desc,

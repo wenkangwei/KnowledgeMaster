@@ -81,17 +81,17 @@ class Environment():
         self.generation_agent = MultiModalAgent(model="qwen2.5vl:7b",
                                 emb_model_name= "nomic-embed-text:latest",
                                 tools=[],
-                                timeout= 60,
+                                timeout= 180,
                                 context=context) 
         self.scheduel_agent = Agent(context=context,model= "qwen2.5:7b",
                                     emb_model_name = "nomic-embed-text:latest",
                                     tools = tools_dict,
-                                    timeout= 60)
+                                    timeout= 180)
         self.recog_agent = Agent(context=context,
                                 model= "qwen2.5:3b",
                                 emb_model_name = "nomic-embed-text:latest",
                                 tools = tools_dict,
-                                timeout= 60)
+                                timeout= 180)
         self.monsters = {}
         self.task_queue = collections.defaultdict(list)
         self.chunk_list = collections.defaultdict(list)
