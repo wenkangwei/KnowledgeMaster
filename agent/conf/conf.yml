@@ -1,10 +1,19 @@
 model:
   qwen2.5vl:
     model_name: qwen2.5vl:7b
+    url: http://localhost:11434/v1
+    api_key: ollama
     model_path: /home/wwk/workspace/ai_project/KnowledgeMaster/model/qwen2.5vl
   qwen2.5:
     model_name: qwen2.5:3b
+    url: http://localhost:11434/v1
+    api_key: ollama
     model_path: /home/wwk/workspace/ai_project/KnowledgeMaster/model/qwen2.5
+  deepseek_r1:
+    model_name: deepseek_r1
+    url: https://api.deepseek.com
+    api_key: <DEEPSEEK_API_TOKEN>
+    model_path: 
 
 memory:
   redis:
@@ -44,7 +53,7 @@ memory:
 tools:
   email:
     sender_email: awk669@qq.com
-    password: xveshxtrckiscgca
+    password: <QQ_EMAIL_TOKEN>
     smtp_server: smtp.qq.com
     port: 587
     receiver_email: 1904832812@qq.com

@@ -83,8 +83,15 @@ class Environment():
                                 tools=[],
                                 timeout= 60,
                                 context=context) 
-        self.scheduel_agent = Agent(model= "qwen2.5:7b", emb_model_name = "nomic-embed-text:latest", tools = tools_dict, timeout= 60)
-        self.recog_agent = Agent(model= "qwen2.5:3b", emb_model_name = "nomic-embed-text:latest", tools = tools_dict, timeout= 60)
+        self.scheduel_agent = Agent(context=context,model= "qwen2.5:7b",
+                                    emb_model_name = "nomic-embed-text:latest",
+                                    tools = tools_dict,
+                                    timeout= 60)
+        self.recog_agent = Agent(context=context,
+                                model= "qwen2.5:3b",
+                                emb_model_name = "nomic-embed-text:latest",
+                                tools = tools_dict,
+                                timeout= 60)
         self.monsters = {}
         self.task_queue = collections.defaultdict(list)
         self.chunk_list = collections.defaultdict(list)

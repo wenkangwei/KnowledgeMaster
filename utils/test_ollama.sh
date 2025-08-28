@@ -105,6 +105,15 @@ curl -X POST http://localhost:8000/chat \
         "image_path": "",
         "prompt": "请调用天气API来看看今天北京天气怎么样"
     }'
+
+elif [ $mode -eq 6 ];then
+curl -X POST http://localhost:8000/chat \
+    -H "Content-Type: application/json" \
+    -d '{
+        "pdf_path": "",
+        "image_path": "",
+        "prompt": "请调用邮件API 发送邮件到1904832812@qq.com 邮箱， boday是”Hello world"
+    }'
 fi
 
 #  请求embedding向量测试

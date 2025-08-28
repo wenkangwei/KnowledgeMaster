@@ -7,7 +7,6 @@ from datetime import datetime
 import httpx  # 替代requests，支持异步
 import logging
 import json
-from dis import Instruction
 from pydantic import BaseModel, Field, validator
 from typing import List, Literal, Optional
 import base64
@@ -46,10 +45,17 @@ class Agent(BaseAgent):
         self.tools = tools
         self.timeout =timeout 
         self.max_retries = 3
-        ollama_url = "http://localhost:11434/v1"
+        ollama_base_url = "http://localhost:11434/v1"
+        ollama_api_key = "ollama"
+        if context:
+            model_config = context.config['model'].get(model,{})
+            base_url = model_config.get["url"] if model_config.get("url","") else ollama_base_url
+            api_key = model_config.get["api_key"] if model_config.get("api_key","") else ollama_api_key
+            if api_key.startswith("<") and api_key.endswith(">"):
+                api_key = os.environ.get(api_key.replace("<","").replace(">","").strip())
         self.client = OpenAI(
-            base_url=ollama_url,  # 注意/v1后缀
-            api_key="ollama" , # 任意非空字符串即可
+            base_url=base_url,  # 注意/v1后缀
+            api_key=api_key , # 任意非空字符串即可
             max_retries=self.max_retries,
         )
 
@@ -110,6 +116,7 @@ class Agent(BaseAgent):
         
         # 如果没有工具调用，直接返回响应
         if not tool_calls:
+            print("LLM didn't use tools= ",tools)
             return response_message.content
         
         # 第二步：处理工具调用

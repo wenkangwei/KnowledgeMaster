@@ -111,7 +111,7 @@ def send_email(recipient:str, subject:str, body:str) ->json:
                         "description": "邮件内容"
                     }
                 },
-                "required": ["recipient"]
+                "required": ["subject","recipient","body"]
             }
         }
 }
@@ -125,13 +125,19 @@ def send_email(recipient:str, subject:str, body:str) ->json:
     root = "/".join(pwd.split("/")[:-1])
     context = Context()
     config = context.config['tools']['email']
-    config['password'] = ""
+    pw = config['password']
+    if str(pw).startswith("<") and str(pw).endswith(">"):
+        env_var = str(pw).replace("<","").replace(">","").strip()
+        password = os.environ.get(env_var, "")
+    else:
+        password = str(pw)
+    print("email password: ", password)
     config['message'] = body
     config['subject'] = subject
     config['receiver_email'] = recipient
 
     sender_email = config['sender_email']  # 替换为您的QQ邮箱
-    password = config['password']  # 替换为您的授权码，不是登录密码！
+    # password = config['password']  # 替换为您的授权码，不是登录密码！
     smtp_server = config['smtp_server']
     receiver_email = config['receiver_email']
     port = 587  # 对于QQ邮箱使用587端口
@@ -162,14 +168,14 @@ def send_email(recipient:str, subject:str, body:str) ->json:
             server.sendmail(sender_email, receiver_email, msg.as_string())
         
         print("邮件发送成功!")
-        return True
+        # return True
+        return json.dumps({"status": "success", "message": "邮件已发送"})
         
     except Exception as e:
         print(f"发送失败: {str(e)}")
-        return False
-    return json.dumps({"status": "success", "message": "邮件已发送"})
-
-
+        # return False
+        return json.dumps({"status": "failed", "message": str(e)})
+    
 
 
 def gen_tools_desc(funcs):
@@ -229,4 +235,4 @@ print("tools_dict: ", tools_dict)
 # }
 
 
-# send_email("1904832812@qq.com", "Hello world", "Hello World")
+send_email("1904832812@qq.com", "Hello world", "Hello World")
