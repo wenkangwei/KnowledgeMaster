@@ -2,192 +2,22 @@ import streamlit as st
 import time
 from datetime import datetime
 import base64
+from streamlit_autorefresh import st_autorefresh
+
+from css.css import load_css
+from get_data.get_data import get_data_from_es
+from utils.utils import rerun
 
 # 页面配置
 st.set_page_config(
-    page_title="知识卡片应用",
+    page_title="KnowledgeMaster",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 自定义CSS样式
-def load_css():
-    st.markdown("""
-    <style>
-    /* 全局样式 */
-    .main {
-        padding: 0;
-    }
-    
-    /* 顶部导航栏样式 - 小红书风格 */
-    .top-nav {
-        background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
-        padding: 15px 20px;
-        border-radius: 15px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
-    }
-    
-    .nav-tabs {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-    }
-    
-    .nav-tab {
-        background: rgba(255, 255, 255, 0.9);
-        border: none;
-        padding: 12px 30px;
-        border-radius: 25px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: #333;
-        font-size: 16px;
-    }
-    
-    .nav-tab.active {
-        background: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
-    }
-    
-    /* 侧边栏样式 - Kimi风格 */
-    .sidebar {
-        background: linear-gradient(180deg, #f8f9fa, #e9ecef);
-        border-radius: 15px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    
-    .profile-section {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-    
-    .history-item {
-        background: white;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        border-left: 4px solid #ff6b6b;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    
-    .history-item:hover {
-        transform: translateX(5px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* 知识卡片网格 - 小红书风格 */
-    .card-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        padding: 20px;
-    }
-    
-    .knowledge-card {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-        cursor: pointer;
-        border: 2px solid transparent;
-    }
-    
-    .knowledge-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        border-color: #ff6b6b;
-    }
-    
-    .card-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 10px;
-    }
-    
-    .card-content {
-        color: #666;
-        line-height: 1.6;
-    }
-    
-    /* 聊天界面样式 - Kimi风格 */
-    .chat-container {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        max-height: 500px;
-        overflow-y: auto;
-    }
-    
-    .chat-message {
-        margin-bottom: 15px;
-        padding: 12px 16px;
-        border-radius: 12px;
-        max-width: 80%;
-    }
-    
-    .user-message {
-        background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
-        color: white;
-        margin-left: auto;
-        text-align: right;
-    }
-    
-    .bot-message {
-        background: #f1f3f4;
-        color: #333;
-        margin-right: auto;
-    }
-    
-    /* 输入区域样式 */
-    .input-section {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    
-    .upload-buttons {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-    }
-    
-    .upload-btn {
-        background: linear-gradient(135deg, #4ecdc4, #44a08d);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 20px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .upload-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
-    }
-    
-    /* 隐藏Streamlit默认元素 */
-    .stDeployButton {display:none;}
-    footer {visibility: hidden;}
-    .stApp > header {visibility: hidden;}
-    </style>
-    """, unsafe_allow_html=True)
+# 每隔5秒自动刷新一次页面（10000毫秒）
+st_autorefresh(interval=5000, key="auto_refresh")
 
 # 初始化会话状态
 def init_session_state():
@@ -206,20 +36,16 @@ def init_session_state():
         ]
     if 'user_profile' not in st.session_state:
         st.session_state.user_profile = {
-            'name': '用户名',
-            'email': 'user@example.com',
-            'bio': '这里是个人简介...'
+            'name': 'KnowledgeMaster',
+            'email': 'KnowledgeMaster@example.com',
+            'bio': '你好呀，我是KnowledgeMaster，一款让知识库”主动““讨好”您的AI Agent。'
         }
 
 # 顶部导航栏
 def render_top_nav():
     st.markdown("""
-    <div class="top-nav">
-        <div class="nav-tabs">
     """, unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         if st.button("个人", key="tab_personal", use_container_width=True):
             st.session_state.current_tab = '个人'
@@ -237,11 +63,42 @@ def render_top_nav():
     
     st.markdown("</div></div>", unsafe_allow_html=True)
 
+# 用户上传知识功能
+def render_input_section():
+    st.markdown('', unsafe_allow_html=True)
+    
+    # 搜索输入框
+    user_input = st.text_input("💭 输入您的收藏", key="user_input", placeholder="请输入...")
+    
+    # 文件上传区域
+    col1, col2, col3 = st.columns([2, 2, 1])
+    
+    with col1:
+        uploaded_image = st.file_uploader("📷图片", type=['png', 'jpg', 'jpeg'], key="image_upload")
+    
+    with col2:
+        uploaded_file = st.file_uploader("📄文件", type=['pdf', 'txt', 'docx'], key="file_upload")
+    
+    with col3:
+        if st.button("⬆", use_container_width=True, type="primary"):
+            if user_input | uploaded_image | uploaded_file:
+                # 上传到后端
+
+                st.rerun()
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
 # 侧边栏
 def render_sidebar():
-    with st.sidebar:
-        st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-        
+    st.markdown("""
+    <style>
+    .st-emotion-cache-1xgtwnd {
+        padding-top: 0px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+    with st.sidebar:        
         # 个人信息编辑
         st.markdown('<div class="profile-section">', unsafe_allow_html=True)
         st.subheader("👤 个人信息")
@@ -274,39 +131,71 @@ def render_sidebar():
                     {"role": "user", "content": f"告诉我关于{item}的信息"},
                     {"role": "assistant", "content": f"这是关于{item}的详细信息..."}
                 ]
-        
+        # 输入区域
+        render_input_section()
         st.markdown('</div>', unsafe_allow_html=True)
+
+
+# 搜索按钮功能函数（你可以填充实际逻辑）
+def search_cards(keyword):
+    # 这里处理你的搜索逻辑
+    st.write(f"你搜索了: {keyword}")
+
 
 # 知识卡片网格
 def render_knowledge_cards():
-    if st.session_state.current_tab == '个人':
-        cards_data = [
-            {"title": "Python基础教程", "content": "从零开始学习Python编程语言的基础知识和核心概念"},
-            {"title": "机器学习入门", "content": "了解机器学习的基本原理和常用算法"},
-            {"title": "数据可视化", "content": "使用Python创建美观的数据图表和可视化"},
-            {"title": "Web开发实践", "content": "构建现代化的Web应用程序"}
-        ]
-    elif st.session_state.current_tab == '知识库':
-        cards_data = [
-            {"title": "技术文档", "content": "各种编程语言和框架的官方文档"},
-            {"title": "学习资源", "content": "精选的在线课程和教程资源"},
-            {"title": "代码示例", "content": "实用的代码片段和项目模板"},
-            {"title": "最佳实践", "content": "行业标准和开发最佳实践指南"}
-        ]
-    else:  # 社区
-        cards_data = [
-            {"title": "热门讨论", "content": "社区中最受关注的技术话题讨论"},
-            {"title": "项目分享", "content": "用户分享的优秀开源项目"},
-            {"title": "经验交流", "content": "开发者们的实战经验分享"},
-            {"title": "问答互助", "content": "技术问题的解答和互助"}
-        ]
-    
-    st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
-    
-    # 创建两列布局
+    cards_data = get_data_from_es()
+
+    # col1, col2 = st.columns([2, 3])  # 左标题占2份，右搜索占3份
+    # with col1:
+    #     st.markdown("<h3 style='margin-bottom:0;'>📋 📋 {st.session_state.current_tab}推荐</h3>", unsafe_allow_html=True)
+    # with col2:
+    #     search_col1, search_col2 = st.columns([4,1])
+    #     search_input = search_col1.text_input("", placeholder="请输入关键词", label_visibility="collapsed")
+    #     search_btn = search_col2.button("搜索")
+
+    # 一行三列：标题、搜索框、按钮
+    col1, col2, col3 = st.columns([4, 3, 1])
+    with col1:
+        st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
+    with col2:
+        search_input = st.text_input(
+            "", 
+            placeholder="请模糊输入关键词",
+            key="search_box"
+        )
+    with col3:
+        if st.button("搜索", key="search_btn"):
+            search_cards(st.session_state.search_box)
+
+    # st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
+    cards_per_page = 4
+    total_cards = len(cards_data)
+    total_pages = (total_cards + cards_per_page - 1) // cards_per_page
+
+    # 初始化分页和计时
+    if 'card_page_idx' not in st.session_state:
+        st.session_state.card_page_idx = 0
+    if 'last_cards_refresh' not in st.session_state:
+        st.session_state.last_cards_refresh = time.time()
+
+    # 自动翻页（每10秒）
+    now = time.time()
+    if now - st.session_state.last_cards_refresh > 5:
+        st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
+        st.session_state.last_cards_refresh = now
+        rerun()
+
+    # 展示当前页的卡片
+    start = st.session_state.card_page_idx * cards_per_page
+    end = start + cards_per_page
+    cards_to_show = cards_data[start:end]
+
+    # 用自定义grid美化
+    st.markdown('<div class="card-grid">', unsafe_allow_html=True)
+    # 两列布局
     col1, col2 = st.columns(2)
-    
-    for i, card in enumerate(cards_data):
+    for i, card in enumerate(cards_to_show):
         with col1 if i % 2 == 0 else col2:
             with st.container():
                 st.markdown(f"""
@@ -315,13 +204,33 @@ def render_knowledge_cards():
                     <div class="card-content">{card['content']}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                if st.button(f"查看详情", key=f"card_{i}", use_container_width=True):
+                if st.button(f"查看详情", key=f"card_{start + i}", use_container_width=True):
                     st.session_state.chat_mode = True
                     st.session_state.chat_history = [
                         {"role": "user", "content": f"告诉我更多关于{card['title']}的信息"},
                         {"role": "assistant", "content": f"关于{card['title']}：{card['content']}。这里是更详细的信息..."}
                     ]
+    
+    # 上一页/下一页按钮 + 页码
+    prev_col, page_col, next_col = st.columns([1,3,1])
+    with prev_col:
+        if st.button("上一页", key="prev_page"):
+            st.session_state.card_page_idx = (st.session_state.card_page_idx - 1) % total_pages
+            st.session_state.last_cards_refresh = time.time()
+            rerun()
+    with next_col:
+        if st.button("下一页", key="next_page"):
+            st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
+            st.session_state.last_cards_refresh = time.time()
+            rerun()
+    with page_col:
+        st.markdown(
+            f"<div style='text-align:center; font-size:16px; margin-top:10px;'>"
+            f"第 <b>{st.session_state.card_page_idx + 1}</b> / <b>{total_pages}</b> 页"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
 
 # 聊天界面
 def render_chat_interface():
@@ -349,55 +258,65 @@ def render_chat_interface():
                 </div>
                 """, unsafe_allow_html=True)
 
-# 输入区域
-def render_input_section():
-    st.markdown('<div class="input-section">', unsafe_allow_html=True)
-    
-    # 搜索输入框
-    user_input = st.text_input("💭 输入您的问题或搜索内容...", key="user_input", placeholder="请输入您想了解的内容")
-    
-    # 文件上传区域
-    col1, col2, col3 = st.columns([1, 1, 2])
-    
+def chat_input_section():
+    st.markdown('', unsafe_allow_html=True)
+    col1, col2 = st.columns([5, 1])  # 左宽右窄
+
     with col1:
-        uploaded_image = st.file_uploader("📷 上传图片", type=['png', 'jpg', 'jpeg'], key="image_upload")
-    
+        user_input = st.text_input(
+            "💭 输入您的问题或搜索内容...",
+            key="chat_input",
+            placeholder="请输入您想了解的内容",
+            label_visibility="collapsed"  # 隐藏label
+        )
+
     with col2:
-        uploaded_file = st.file_uploader("📄 上传文件", type=['pdf', 'txt', 'docx'], key="file_upload")
-    
-    with col3:
-        if st.button("🚀 发送", use_container_width=True, type="primary"):
-            if user_input:
-                # 切换到聊天模式
-                st.session_state.chat_mode = True
-                
-                # 添加用户消息
-                st.session_state.chat_history.append({
-                    "role": "user", 
-                    "content": user_input
-                })
-                
-                # 模拟AI回复
-                time.sleep(1)  # 模拟处理时间
-                ai_response = f"我理解您想了解关于'{user_input}'的信息。这是一个很好的问题！让我为您详细解答..."
-                
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": ai_response
-                })
-                
-                # 添加到搜索历史
-                if user_input not in st.session_state.search_history:
-                    st.session_state.search_history.insert(0, user_input)
-                    if len(st.session_state.search_history) > 10:
-                        st.session_state.search_history.pop()
-                
-                st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+        send_clicked = st.button("🚀 发送", use_container_width=True)
+
+    # 仅在点击按钮且有输入时触发
+    if send_clicked and user_input:
+        # 切换到聊天模式
+        st.session_state.chat_mode = True
+
+        # 添加用户消息
+        st.session_state.chat_history.append({
+            "role": "user", 
+            "content": user_input
+        })
+
+        # 模拟AI回复
+        time.sleep(1)
+        ai_response = f"我理解您想了解关于'{user_input}'的信息。这是一个很好的问题！让我为您详细解答..."
+
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": ai_response
+        })
+
+        # 添加到搜索历史
+        if user_input not in st.session_state.search_history:
+            st.session_state.search_history.insert(0, user_input)
+            if len(st.session_state.search_history) > 10:
+                st.session_state.search_history.pop()
+
+        st.rerun()
 
 # 主函数
 def main():
+    st.markdown("""
+    <style>
+    /* 隐藏 Streamlit 默认的菜单和页脚 */
+    #MainMenu, footer, header {
+        visibility: hidden;
+    }
+
+    /* 去除主内容区的 padding 顶部间距 */
+    .block-container {
+        padding-top: 0rem !important;  /* 你可以调成0rem或1rem，看需求 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     load_css()
     init_session_state()
     
@@ -413,8 +332,8 @@ def main():
     else:
         render_knowledge_cards()
     
-    # 输入区域
-    render_input_section()
+    # 聊天输入区域
+    chat_input_section()
 
 if __name__ == "__main__":
     main()
