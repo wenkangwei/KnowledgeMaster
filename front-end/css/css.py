@@ -34,8 +34,8 @@ def load_css():
     .card-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        padding: 20px;
+        gap: 1px;
+        padding: 2px;
     }
     
     .knowledge-card {
@@ -146,7 +146,7 @@ def load_css():
         margin-bottom: 0rem;
         box-shadow: 0 2px 8px rgba(78, 205, 196, 0.06);
         transition: box-shadow 0.2s;
-        width: 250px;
+        width: 100%;
         max-width: 100%;
     }
 
@@ -158,11 +158,12 @@ def load_css():
     [data-testid="stFileUploaderDropzone"] {
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
-        min-height: 120px; /* 可根据需要调整高度 */
+        min-height: 60px; /* 可根据需要调整高度 */
+        padding: 10px
         width: 100%;
-        gap: 16px; /* 按钮和文字之间留出空间 */
+        gap: 5px; /* 按钮和文字之间留出空间 */
     }
 
     /* 美化上传按钮 */

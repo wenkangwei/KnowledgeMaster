@@ -66,28 +66,37 @@ def render_top_nav():
 # 用户上传知识功能
 def render_input_section():
     st.markdown('', unsafe_allow_html=True)
-    
-    # 搜索输入框
-    user_input = st.text_input("💭 输入您的收藏", key="user_input", placeholder="请输入...")
-    
-    # 文件上传区域
-    col1, col2, col3 = st.columns([2, 2, 1])
-    
-    with col1:
-        uploaded_image = st.file_uploader("📷图片", type=['png', 'jpg', 'jpeg'], key="image_upload")
-    
-    with col2:
-        uploaded_file = st.file_uploader("📄文件", type=['pdf', 'txt', 'docx'], key="file_upload")
-    
-    with col3:
+    st.subheader("💭 输入您的收藏")
+    user_input = st.text_input("注: 文字/图片/文件", key="user_input", placeholder="请输入...")
+    uploader_container = st.container()
+    with uploader_container:
+        col = st.columns(1)[0]  # 或者直接使用 st.beta_expander 或不使用列
+        # 图片上传
+        with col:  # 如果不使用列，则直接放在 uploader_container 下
+            uploaded_image = st.file_uploader("📷图片", type=['png', 'jpg', 'jpeg'], key="image_upload")
+            st.markdown('''<style>
+                /* 直接在这里应用针对 file_uploader 的样式调整，如果必要的话 */
+                div[data-testid="stFileUploaderDropzone"] {
+                    min-height: 60px; /* 减少高度 */
+                    padding: 5px; /* 减少内边距 */
+                }
+            </style>''', unsafe_allow_html=True)
+            uploaded_file = st.file_uploader("📄文件", type=['pdf', 'txt', 'docx'], key="file_upload")
+            st.markdown('''<style>
+                /* 直接在这里应用针对 file_uploader 的样式调整，如果必要的话 */
+                div[data-testid="stFileUploaderDropzone"] {
+                    min-height: 60px; /* 减少高度 */
+                    padding: 5px; /* 减少内边距 */
+                }
+            </style>''', unsafe_allow_html=True)
+        # upload_button_col = st.column(width=0.3)  # 可选：限制按钮列宽
         if st.button("⬆", use_container_width=True, type="primary"):
-            if user_input | uploaded_image | uploaded_file:
-                # 上传到后端
-
+            if user_input or uploaded_image or uploaded_file:
+                # 上传到后端逻辑
+                print("你输入的文字为：", user_input)
+                print("你输入的图片为：", uploaded_image)
+                print("你输入的文件为：", uploaded_file)
                 st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
 
 # 侧边栏
 def render_sidebar():
@@ -135,40 +144,25 @@ def render_sidebar():
         render_input_section()
         st.markdown('</div>', unsafe_allow_html=True)
 
+def search_input_section():
+    st.markdown('', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([4, 3, 1])
 
-# 搜索按钮功能函数（你可以填充实际逻辑）
-def search_cards(keyword):
-    # 这里处理你的搜索逻辑
-    st.write(f"你搜索了: {keyword}")
-
+    with col1:
+        st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
+    with col2:
+        search_input = st.text_input("test",placeholder="请模糊输入关键词",key="search_box",label_visibility="collapsed")
+    with col3:
+        search_clicked = st.button("🔍搜索", use_container_width=True)
+    if search_clicked and search_input:
+        # 执行搜索 并返回数据
+        print("你搜索的关键字为: ", search_input)
+        st.rerun()
 
 # 知识卡片网格
 def render_knowledge_cards():
     cards_data = get_data_from_es()
-
-    # col1, col2 = st.columns([2, 3])  # 左标题占2份，右搜索占3份
-    # with col1:
-    #     st.markdown("<h3 style='margin-bottom:0;'>📋 📋 {st.session_state.current_tab}推荐</h3>", unsafe_allow_html=True)
-    # with col2:
-    #     search_col1, search_col2 = st.columns([4,1])
-    #     search_input = search_col1.text_input("", placeholder="请输入关键词", label_visibility="collapsed")
-    #     search_btn = search_col2.button("搜索")
-
-    # 一行三列：标题、搜索框、按钮
-    col1, col2, col3 = st.columns([4, 3, 1])
-    with col1:
-        st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
-    with col2:
-        search_input = st.text_input(
-            "", 
-            placeholder="请模糊输入关键词",
-            key="search_box"
-        )
-    with col3:
-        if st.button("搜索", key="search_btn"):
-            search_cards(st.session_state.search_box)
-
-    # st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
+    search_input_section()
     cards_per_page = 4
     total_cards = len(cards_data)
     total_pages = (total_cards + cards_per_page - 1) // cards_per_page
@@ -269,15 +263,12 @@ def chat_input_section():
             placeholder="请输入您想了解的内容",
             label_visibility="collapsed"  # 隐藏label
         )
-
     with col2:
         send_clicked = st.button("🚀 发送", use_container_width=True)
-
     # 仅在点击按钮且有输入时触发
     if send_clicked and user_input:
         # 切换到聊天模式
         st.session_state.chat_mode = True
-
         # 添加用户消息
         st.session_state.chat_history.append({
             "role": "user", 
@@ -298,7 +289,6 @@ def chat_input_section():
             st.session_state.search_history.insert(0, user_input)
             if len(st.session_state.search_history) > 10:
                 st.session_state.search_history.pop()
-
         st.rerun()
 
 # 主函数
@@ -309,31 +299,25 @@ def main():
     #MainMenu, footer, header {
         visibility: hidden;
     }
-
     /* 去除主内容区的 padding 顶部间距 */
     .block-container {
         padding-top: 0rem !important;  /* 你可以调成0rem或1rem，看需求 */
     }
     </style>
     """, unsafe_allow_html=True)
-    
     load_css()
     init_session_state()
-    
     # 渲染顶部导航
     render_top_nav()
-    
     # 渲染侧边栏
     render_sidebar()
-    
     # 主内容区域
     if st.session_state.chat_mode:
         render_chat_interface()
     else:
         render_knowledge_cards()
-    
     # 聊天输入区域
     chat_input_section()
-
+    
 if __name__ == "__main__":
     main()
