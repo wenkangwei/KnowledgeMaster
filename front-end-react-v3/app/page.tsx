@@ -418,24 +418,67 @@ export default function KnowledgeChatApp() {
     })
   }
 
-  const uploadFilesToLocal = async (files: File[]): Promise<string[]> => {
-    const uploadedPaths: string[] = []
+  // const uploadFilesToLocal = async (files: File[]): Promise<string[]> => {
+  //   const uploadedPaths: string[] = []
 
-    for (const file of files) {
+  //   for (const file of files) {
+  //     try {
+  //       const timestamp = Date.now()
+  //       const filename = `${timestamp}_${file.name}`
+  //       const localPath = `/uploads/${filename}`
+  //       uploadedPaths.push(localPath)
+
+  //       console.log("[v0] File prepared for upload:", { originalName: file.name, localPath, size: file.size })
+  //     } catch (error) {
+  //       console.error("[v0] File preparation failed:", error)
+  //     }
+  //   }
+
+  //   return uploadedPaths
+  // }
+
+  async function uploadFilesToLocal (files: File[]) {
+    console.log("[v0] Starting file download process for", files.length, "files")
+    const downloadedPaths: string[] = []
+
+    for (const file of  files) {
       try {
+        // 创建文件的Blob URL并下载到本地
+        const blob = new Blob([file], { type: file.type })
+        const blobUrl = URL.createObjectURL(blob)
+        
+        // 创建下载链接
+        const downloadLink = document.createElement('a')
+        downloadLink.href = blobUrl
+        
+        // 设置绝对路径（这里使用用户下载目录）
         const timestamp = Date.now()
         const filename = `${timestamp}_${file.name}`
-        const localPath = `/uploads/${filename}`
-        uploadedPaths.push(localPath)
+        const absolutePath = `/upload/${filename}` // 修改为你的绝对路径
+        
+        downloadLink.download = filename
+        document.body.appendChild(downloadLink)
+        await downloadLink.click()
+        document.body.removeChild(downloadLink)
+        
+        // 释放Blob URL
+        URL.revokeObjectURL(blobUrl)
+        
+        downloadedPaths.push(absolutePath)
+        console.log("[v0] File downloaded to:", absolutePath)
 
-        console.log("[v0] File prepared for upload:", { originalName: file.name, localPath, size: file.size })
       } catch (error) {
-        console.error("[v0] File preparation failed:", error)
+        console.error("[v0] File download failed:", error)
+        // 即使下载失败，也返回一个模拟路径继续流程
+        downloadedPaths.push(`/upload/${Date.now()}_${file.name}`)
       }
     }
 
-    return uploadedPaths
+    console.log("[v0] File download process completed, paths:", downloadedPaths)
+    return downloadedPaths
+
   }
+
 
   const fetchPersonalRecommendations = async () => {
     console.log("[v0] Fetching personal recommendations from backend")
@@ -568,9 +611,32 @@ export default function KnowledgeChatApp() {
       return
     }
 
-    const filePaths = pendingFiles.length > 0 ? await uploadFilesToLocal(pendingFiles) : []
-    const imagePaths = pendingImages.length > 0 ? await uploadFilesToLocal(pendingImages) : []
+    // const filePaths = pendingFiles.length > 0 ?  await uploadFilesToLocal(pendingFiles) : []
+    // const imagePaths = pendingImages.length > 0 ? await uploadFilesToLocal(pendingImages) : []
 
+    const formData = new FormData();
+    const image_formData = new FormData();
+    pendingFiles.forEach(file => formData.append("file", file));
+    pendingImages.forEach(file => image_formData.append("file", file));
+
+    const file_response = await fetch("/api/upload_files", {
+        method: "POST",
+        body: formData,
+      })
+    const image_response = await fetch("/api/upload_files", {
+        method: "POST",
+        body: image_formData,
+      })
+
+    const ret_files = await file_response.json()
+    const ret_images = await image_response.json()
+    const filePaths = pendingFiles.length > 0 ?  ret_files.files: []
+    const imagePaths = pendingImages.length > 0 ?  ret_images.files: []
+
+    
+
+    
+      
     console.log("[v0] File paths:", filePaths)
     console.log("[v0] Image paths:", imagePaths)
 

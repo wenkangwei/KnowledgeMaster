@@ -80,20 +80,20 @@ elif [ $mode -eq 2 ];then
 curl -X POST http://localhost:8000/get_card_list \
   -H "Content-Type: application/json" \
   -d '{
-    "book_id":"640507"
+    "book_id":"995975"
   }'
 
 elif [ $mode -eq 3 ];then
 curl -X POST http://localhost:8000/delete_books_list \
   -H "Content-Type: application/json" \
   -d '{
-    "indices": ["abstract","mmoe.pdf","pdf_1756002381144.pdf","pdf_1756003036115.pdf","pdf_1756003874791.pdf","pdf_1756012414300.pdf"]
+    "indices": ["995975","mmoe.pdf", "640507","995975","abstract","mmoe.pdf","pdf_1756002381144.pdf","pdf_1756003036115.pdf","pdf_1756003874791.pdf","pdf_1756012414300.pdf"]
   }'
 elif [ $mode -eq 4 ];then
     curl -X POST http://localhost:8000/chat \
     -H "Content-Type: application/json" \
     -d '{
-        "pdf_path": "/home/wwk/workspace/ai_project/BookMonster/data/upload/pdf_1756002702477.pdf",
+        "pdf_path": "/home/wwk/workspace/ai_project/BookMonster/data/upload/MMOE_paper.pdf",
         "image_path": "/home/wwk/workspace/ai_project/BookMonster/data/upload/image_1755920536461.jpg",
         "prompt": "请分析这个文档并提取关键信息生成知识卡片"
     }'
@@ -114,6 +114,21 @@ curl -X POST http://localhost:8000/chat \
         "image_path": "",
         "prompt": "请调用邮件API 发送邮件到1904832812@qq.com 邮箱， boday是”Hello world"
     }'
+
+elif [ $mode -eq 7 ];then
+curl -X POST http://localhost:8000/get_card_recom \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key":"personal_recom"
+    }'
+elif [ $mode -eq 8 ];then
+url="https://d5488ea6e17c.ngrok-free.app"
+curl -X POST $url/get_database_list \
+  -H "Content-Type: application/json" \
+  -d '{
+    "book_id":"640507"
+  }'
+
 fi
 
 #  请求embedding向量测试

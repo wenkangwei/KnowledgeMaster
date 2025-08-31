@@ -358,7 +358,7 @@ class Environment():
         print("generate monster request: ", request)
         images = request.get('images_path',"")
         prompt = request.get('prompt_path', "")
-        pdf_path = request.get('file_path',"")
+        pdf_path = request.get('pdf_path',"")
         try:
             print("Processing generate_cards..")
             log_operation("Processing generate_bookmonster prompt:", prompt)
@@ -599,9 +599,10 @@ async def chat(request : dict):
     image_path = request.get("image_path","")
     file_path = request.get("file_path","")
     if file_path:
-        request['file_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
+        request['pdf_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
     if image_path:
         request['image_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",image_path)
+    request['file_path'] = request['pdf_path']
     print("request: ", request)
 
     try:
@@ -623,7 +624,7 @@ async def chat(request : dict):
 async def chat_v2(
     pdf_path: UploadFile = File(...),
     prompt: str="",
-    image_path: UploadFile = File(...),
+    image_path: UploadFile = File(...)
 ):
     # chat dialog task.
     """
@@ -648,24 +649,28 @@ async def chat_v2(
     }
 
 
-    file_path = f"../front-end-react-v3/public/uploads/{pdf_path.filename}"
     file_content = await pdf_path.read()
+    file_path = f"../front-end-react-v3/public/uploads/{pdf_path.filename}"
     
+    
+    
+    
+    image_content = await image_path.read()
+    image_path_str = f"../front-end-react-v3/public/uploads/{image_path.filename}"
+    
+
     with open(file_path, "wb") as f:
         f.write(file_content)
     print(f"file_path: {file_path} written")
     
-    image_path = f"../front-end-react-v3/public/uploads/{image_path.filename}"
-    image_content = await image_path.read()
-    
-    with open(image_path, "wb") as f:
+    with open(image_path_str, "wb") as f:
         f.write(image_content)
     
-    print(f"image_path: {image_path} written")
+    print(f"image_path: {image_path_str} written")
     
     request = {
-        "pdf_path": pdf_path,
-        "image_path": image_path,
+        "pdf_path": file_path,
+        "image_path": image_path_str,
         "prompt": prompt,
     }
     print("chat request: ", request)
@@ -673,7 +678,7 @@ async def chat_v2(
     image_path = request.get("image_path","")
     file_path = request.get("file_path","")
     if file_path:
-        request['file_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
+        request['pdf_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
     if image_path:
         request['image_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",image_path)
     print("request: ", request)
