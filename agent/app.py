@@ -39,9 +39,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    # allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
 
 
 def get_ollama_host() -> str:
@@ -214,6 +217,7 @@ class Environment():
                 chunk['chunk_id'] = f"chunk{chunk_id}"
                 chunk['task_id'] = str(task_id).lower() 
                 chunk_data = None
+                chunk_name = book_nm + ":" + chunk['title']
                 chunk_batch_ls.append( f"###chunk{chunk_id}: \n" + chunk['content'])
                 chunk_id_ls.append(f"chunk{chunk_id}")
                 self.chunk_list[task_id].append(chunk)
@@ -243,7 +247,8 @@ class Environment():
                             id_content_map.append( {"emb_id": emb_id, "content":content}) 
                             embeddings_ls["emb_id"].append(emb_id) 
                             embeddings_ls["chunk_emb"].append(emb) 
-                            data['book_nm'] = book_nm
+                            data['book_name'] = book_nm
+                            data['chunk_name'] = chunk_name
                             # self.task_queue[task_id].extend(data['points'])
                             self.task_queue[task_id].append(data)
                         print(f"Task {task_id} - 已处理 {chunk_id} chunks 和 {len( self.task_queue[task_id])} 条QA")
@@ -267,7 +272,12 @@ class Environment():
             for _, doc in enumerate(self.task_queue[task_id]):
                 doc_id = doc['emb_id']
                 doc_dict[doc_id] = doc
-            ret = self.generation_agent.memory_client.es_client.batch_create_doc(index_name, doc_dict)
+            
+            book_desc = chunks[0]['content']
+            if not book_desc:
+                book_desc = chunks[0]['title']
+            print("Book_name: ", book_nm, ", book_desc: ", book_desc, "index_name: ", index_name)
+            ret = self.generation_agent.memory_client.es_client.batch_create_doc(index_name, doc_dict, book_nm, book_desc)
             print("QA doc Saved with ret = ", ret)
 
             
@@ -400,7 +410,8 @@ class Environment():
         inputs = str(request)
         response = {
             "response":"",
-            "card_list":[]
+            "card_list":[],
+            "status":"success"
         }
         chat_message = []
         recog_res = await self.intention_recog(inputs)
@@ -428,7 +439,8 @@ class Environment():
             res = await self.scheduel_agent.chat_with_tools(chat_message, tools_dict)
             response['response']= res
             pass
-        elif recog_res == "unknown":
+        # elif recog_res == "unknown":
+        else:
             print("get unknown chatting task")
             # simply chat
             chat_message.extend([
@@ -437,6 +449,9 @@ class Environment():
             res = await self.scheduel_agent.chat_with_tools(chat_message,tools_dict)
             response['response']= res
             pass
+        # else:
+        #     response['status'] = "failed"
+        #     response['msg'] = "Unknown request type"
         return response
 
 
@@ -461,17 +476,29 @@ def log_operation(action: str, details: str, object_id: str = None, level: str =
     getattr(logging, level)(f"{action}: {details}")
 
 
+class DatabaseListRequest(BaseModel):
+    key: Optional[str] = "database"
+
 @app.post("/get_database_list")
-async def database_list(request : dict):
+async def database_list(request:dict):
     resp = {"status":"success", "msg":"", "index_list":[]}
+    print("request: ",request)
     try:
-        result = env.generation_agent.memory_client.es_client.get_all_index_values()
+        index_list = env.generation_agent.memory_client.es_client.get_all_index_values()
+        result = []
+        for book_id in index_list:
+            cards = env.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
+            if len(cards)>0:
+                result.append({"book_id": book_id, "book_name": cards[0].get('_index_name',""), "description":  cards[0].get('_index_description',"")})
         resp['index_list'] = result
+        print("database_list: ", result)
+        return resp
     except Exception as e:
         logging.error(f"Failed to load database list error: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"database_list failed:  {str(e)}")
         resp['status'] = "failed"
         resp['msg'] = str(e)
-    return resp
+        return resp
 
 
 @app.post("/delete_books_list")
@@ -487,7 +514,8 @@ async def delete_books_list(request : dict):
     return resp
     
 
-
+class CardListRequest(BaseModel):
+    book_id: str
 
 @app.post("/get_card_list")
 async def get_card_list(request : dict):
@@ -502,6 +530,7 @@ async def get_card_list(request : dict):
     # result = self.generation_agent.memory_client.es_client.search(index= book_id, keyword=book_id, fields=['_index','_id'])
     # result = self.generation_agent.memory_client.es_client.get_all_documents_search_after(book_id)
     resp = {"status":"success", "msg":"", "card_list":[]}
+    print("Get get_card_list request: ", request)
     try:
         book_id = request['book_id']
         result = env.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
@@ -520,13 +549,27 @@ async def get_card_recom_realtime(request : dict):
 
     return
 
+class CardRecomRequest(BaseModel):
+    key: Optional[str] = "" 
 
 @app.post("/get_card_recom")
-async def get_card_recom(request : dict):
+async def get_card_recom(request : CardRecomRequest):
     # return cards of selected knowledge set
     # 请求大模型提取自主推荐cards 到用户邮箱 以及推荐列表
+    resp = {"status":"success", "msg":"", "card_list":[]}
+    print("Get request: ", request)
+    try:
+        book_list = env.generation_agent.memory_client.es_client.get_all_index_values()
+        for book_id in book_list:
+            result = env.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
+            resp["msg"]=""
+            resp['card_list'].extend([ r["doc"] for r in result])
+    except Exception as e:
+        logging.error(f"get_card_recom failed:  {str(e)}")
+        raise HTTPException(status_code=422, detail=f"get_card_list failed:  {str(e)}")
+        
+    return resp
 
-    return
 
 @app.post("/chat")
 async def chat(request : dict):
@@ -571,6 +614,13 @@ async def debug_endpoint(raw_request: dict):
 
 if __name__ == "__main__":
     # # Debug
+    port = 8000
+    from pyngrok import ngrok
+    # 使用 ngrok 连接指定端口，获取公共 URL
+    # 这里假设你已经按照前面的方法设置了 NGROK_AUTH_TOKEN（推荐）
+    # 如果没有，以下代码仍会运行，但每次连接的 URL 都会变化且有限制
+    public_url = ngrok.connect(port, bind_tls=True).public_url
+    print(f" * Public URL: {public_url}")
     import uvicorn
     os.makedirs("uploads", exist_ok=True)
     os.makedirs("generated_images", exist_ok=True)

@@ -47,6 +47,8 @@ class Agent(BaseAgent):
         self.max_retries = 3
         ollama_base_url = "http://localhost:11434/v1"
         ollama_api_key = "ollama"
+        base_url = ollama_base_url
+        api_key = ollama_api_key
         if context:
             model_config = context.config['model'].get(model,{})
             base_url = model_config.get["url"] if model_config.get("url","") else ollama_base_url
@@ -55,7 +57,7 @@ class Agent(BaseAgent):
                 api_key = os.environ.get(api_key.replace("<","").replace(">","").strip())
         self.client = OpenAI(
             base_url=base_url,  # 注意/v1后缀
-            api_key=api_key , # 任意非空字符串即可
+            api_key=api_key, # 任意非空字符串即可
             max_retries=self.max_retries,
         )
 

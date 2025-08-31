@@ -12,7 +12,7 @@
 1. 请求用户历史上传的书籍/文本列表 (对应知识库列表)
     - 接口:  ```http://localhost:8000/get_database_list```
     - 请求格式: 任意json格式请求
-    - 返回结果: ``` {"status":"success", "msg":"", "index_list":[book_id1, book_id2,book_id3]} ```
+    - 返回结果: ``` {"status":"success", "msg":"", "index_list":[{"book_id": book_id, "book_name": cards[0].get('_index_name',""), "description":  cards[0].get('_index_description',"")}, {"book_id": book_id, "book_name": cards[0].get('_index_name',""), "description":  cards[0].get('_index_description',"")}, ...]} ```
 
 
 

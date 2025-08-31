@@ -34,7 +34,7 @@ class ES_Client():
             
             scroll_id = response['_scroll_id']
             hits = response['hits']['hits']
-            
+            print("hits[0]=", hits[0])
             # 处理第一批结果
             while hits:
                 for hit in hits:
@@ -205,7 +205,7 @@ class ES_Client():
             print(f"Search After 错误: {e}")
             return []
     
-    def batch_create_doc(self, index_name, updates):
+    def batch_create_doc(self, index_id, updates, index_name="", index_desc=""):
         """
         批量更新
         index_name: 
@@ -215,7 +215,9 @@ class ES_Client():
             actions = []
             for doc_id, update_data in updates.items():
                 actions.append({
-                    "_index": index_name,
+                    "_index": index_id,
+                    "_index_name": index_name,
+                    "_index_description":index_desc,
                     "_id": doc_id,
                     "doc": update_data
                 })
