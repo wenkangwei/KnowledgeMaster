@@ -1,193 +1,30 @@
 import streamlit as st
 import time
+import os
 from datetime import datetime
 import base64
+from streamlit_autorefresh import st_autorefresh
+from css.css import load_css
+from get_data.get_data import all_data
+from utils.utils import rerun, render_database, render_cards, render_detail, render_community, render_post, render_comment
+from send_kg.send import send_kg
 
 # 页面配置
 st.set_page_config(
-    page_title="知识卡片应用",
+    page_title="KnowledgeMaster",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 自定义CSS样式
-def load_css():
-    st.markdown("""
-    <style>
-    /* 全局样式 */
-    .main {
-        padding: 0;
-    }
-    
-    /* 顶部导航栏样式 - 小红书风格 */
-    .top-nav {
-        background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
-        padding: 15px 20px;
-        border-radius: 15px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
-    }
-    
-    .nav-tabs {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-    }
-    
-    .nav-tab {
-        background: rgba(255, 255, 255, 0.9);
-        border: none;
-        padding: 12px 30px;
-        border-radius: 25px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: #333;
-        font-size: 16px;
-    }
-    
-    .nav-tab.active {
-        background: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
-    }
-    
-    /* 侧边栏样式 - Kimi风格 */
-    .sidebar {
-        background: linear-gradient(180deg, #f8f9fa, #e9ecef);
-        border-radius: 15px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    
-    .profile-section {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-    
-    .history-item {
-        background: white;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        border-left: 4px solid #ff6b6b;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    
-    .history-item:hover {
-        transform: translateX(5px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* 知识卡片网格 - 小红书风格 */
-    .card-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        padding: 20px;
-    }
-    
-    .knowledge-card {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-        cursor: pointer;
-        border: 2px solid transparent;
-    }
-    
-    .knowledge-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        border-color: #ff6b6b;
-    }
-    
-    .card-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 10px;
-    }
-    
-    .card-content {
-        color: #666;
-        line-height: 1.6;
-    }
-    
-    /* 聊天界面样式 - Kimi风格 */
-    .chat-container {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        max-height: 500px;
-        overflow-y: auto;
-    }
-    
-    .chat-message {
-        margin-bottom: 15px;
-        padding: 12px 16px;
-        border-radius: 12px;
-        max-width: 80%;
-    }
-    
-    .user-message {
-        background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
-        color: white;
-        margin-left: auto;
-        text-align: right;
-    }
-    
-    .bot-message {
-        background: #f1f3f4;
-        color: #333;
-        margin-right: auto;
-    }
-    
-    /* 输入区域样式 */
-    .input-section {
-        background: white;
-        border-radius: 15px;
-        padding: 20px;
-        margin: 20px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-    
-    .upload-buttons {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-    }
-    
-    .upload-btn {
-        background: linear-gradient(135deg, #4ecdc4, #44a08d);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 20px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .upload-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
-    }
-    
-    /* 隐藏Streamlit默认元素 */
-    .stDeployButton {display:none;}
-    footer {visibility: hidden;}
-    .stApp > header {visibility: hidden;}
-    </style>
-    """, unsafe_allow_html=True)
+# 每隔5秒自动刷新一次页面（10000毫秒）
+# st_autorefresh(interval=5000, key="auto_refresh")
+
+
+# 设置保存文件的目录
+save_directory = "../data"
+if not os.path.exists(save_directory):
+    os.makedirs(save_directory)
 
 # 初始化会话状态
 def init_session_state():
@@ -206,20 +43,40 @@ def init_session_state():
         ]
     if 'user_profile' not in st.session_state:
         st.session_state.user_profile = {
-            'name': '用户名',
-            'email': 'user@example.com',
-            'bio': '这里是个人简介...'
+            'name': 'KnowledgeMaster',
+            'email': 'KnowledgeMaster@example.com',
+            'bio': '你好呀，我是KnowledgeMaster，一款让知识库”主动““讨好”您的AI Agent。'
         }
+
+    # ============ 页面状态管理 ============
+    if "page" not in st.session_state:
+        st.session_state.page = "database"  # "database", "cards", "detail"
+    if "selected_book" not in st.session_state:
+        st.session_state.selected_book = None
+    if "selected_card" not in st.session_state:
+        st.session_state.selected_card = None
+    if "db_page_num" not in st.session_state:
+        st.session_state.db_page_num = 1
+    if "card_page_num" not in st.session_state:
+        st.session_state.card_page_num = 1
+
+    # ============ 状态管理 ============
+    if "page" not in st.session_state:
+        st.session_state.page = "community"  # community, post, comment
+    if "selected_post" not in st.session_state:
+        st.session_state.selected_post = None
+    if "selected_comment" not in st.session_state:
+        st.session_state.selected_comment = None
+    if "post_page_num" not in st.session_state:
+        st.session_state.post_page_num = 1
+    if "comment_page_num" not in st.session_state:
+        st.session_state.comment_page_num = 1
 
 # 顶部导航栏
 def render_top_nav():
     st.markdown("""
-    <div class="top-nav">
-        <div class="nav-tabs">
     """, unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         if st.button("个人", key="tab_personal", use_container_width=True):
             st.session_state.current_tab = '个人'
@@ -229,19 +86,88 @@ def render_top_nav():
         if st.button("知识库", key="tab_knowledge", use_container_width=True):
             st.session_state.current_tab = '知识库'
             st.session_state.chat_mode = False
+            st.session_state.page = "database"  # 点击“社区”时更新页面状态
     
     with col3:
         if st.button("社区", key="tab_community", use_container_width=True):
             st.session_state.current_tab = '社区'
             st.session_state.chat_mode = False
+            st.session_state.page = "community"  # 点击“社区”时更新页面状态
     
     st.markdown("</div></div>", unsafe_allow_html=True)
 
+# 用户上传知识功能
+def render_input_section():
+    st.markdown('', unsafe_allow_html=True)
+    st.subheader("💭 输入您的收藏")
+    user_input = st.text_input("注: 文字/图片/文件", key="user_input", placeholder="请输入...")
+    uploader_container = st.container()
+    with uploader_container:
+        col = st.columns(1)[0]  # 或者直接使用 st.beta_expander 或不使用列
+        # 图片上传
+        with col:  # 如果不使用列，则直接放在 uploader_container 下
+            uploaded_image = st.file_uploader("📷图片", type=['png', 'jpg', 'jpeg'], key="image_upload")
+            st.markdown('''<style>
+                /* 直接在这里应用针对 file_uploader 的样式调整，如果必要的话 */
+                div[data-testid="stFileUploaderDropzone"] {
+                    min-height: 60px; /* 减少高度 */
+                    padding: 5px; /* 减少内边距 */
+                }
+            </style>''', unsafe_allow_html=True)
+            uploaded_file = st.file_uploader("📄文件", type=['pdf', 'txt', 'docx'], key="file_upload")
+            st.markdown('''<style>
+                /* 直接在这里应用针对 file_uploader 的样式调整，如果必要的话 */
+                div[data-testid="stFileUploaderDropzone"] {
+                    min-height: 60px; /* 减少高度 */
+                    padding: 5px; /* 减少内边距 */
+                }
+            </style>''', unsafe_allow_html=True)
+        # upload_button_col = st.column(width=0.3)  # 可选：限制按钮列宽
+        if st.button("⬆", use_container_width=True, type="primary"):
+            if user_input or uploaded_image or uploaded_file:
+                # 上传到后端逻辑
+                # print("你输入的文字为：", user_input)
+                # print("你输入的图片为：", uploaded_image)
+                # print("你输入的文件为：", uploaded_file)
+                image_path = ""
+                file_path = ""
+                if uploaded_image is not None:
+                    file_name = os.path.basename(uploaded_image.name)
+                    # 获取文件内容（以二进制形式）
+                    file_content = uploaded_image.getvalue()
+                    # 拼接文件保存路径
+                    save_path = os.path.join(save_directory, file_name)
+                    # print("save_path:"+save_path)
+                    image_path = os.path.abspath(save_path)
+                    # 将文件内容写入到指定路径
+                    with open(save_path, "wb") as f:
+                        f.write(file_content)
+
+                if uploaded_file is not None:
+                    file_name = os.path.basename(uploaded_file.name)
+                    # 获取文件内容（以二进制形式）
+                    file_content = uploaded_file.getvalue()
+                    # 拼接文件保存路径
+                    save_path = os.path.join(save_directory, file_name)
+                    file_path = os.path.abspath(save_path)
+                    # 将文件内容写入到指定路径
+                    with open(save_path, "wb") as f:
+                        f.write(file_content)
+                # 存知识库
+                send_kg(text = user_input, picture_path = image_path, file_path = file_path)
+
+                st.rerun()
+
 # 侧边栏
 def render_sidebar():
-    with st.sidebar:
-        st.markdown('<div class="sidebar">', unsafe_allow_html=True)
-        
+    st.markdown("""
+    <style>
+    .st-emotion-cache-1xgtwnd {
+        padding-top: 0px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+    with st.sidebar:        
         # 个人信息编辑
         st.markdown('<div class="profile-section">', unsafe_allow_html=True)
         st.subheader("👤 个人信息")
@@ -274,64 +200,138 @@ def render_sidebar():
                     {"role": "user", "content": f"告诉我关于{item}的信息"},
                     {"role": "assistant", "content": f"这是关于{item}的详细信息..."}
                 ]
-        
+        # 输入区域
+        render_input_section()
         st.markdown('</div>', unsafe_allow_html=True)
+
+def search_input_section():
+    st.markdown('', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([4, 3, 1])
+
+    with col1:
+        st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
+    with col2:
+        search_input = st.text_input("test",placeholder="请模糊输入关键词",key="search_box",label_visibility="collapsed")
+    with col3:
+        search_clicked = st.button("🔍搜索", use_container_width=True)
+    if search_clicked and search_input:
+        # 执行搜索 并返回数据
+        print("你搜索的关键字为: ", search_input)
+        st.rerun()
 
 # 知识卡片网格
 def render_knowledge_cards():
-    if st.session_state.current_tab == '个人':
-        cards_data = [
-            {"title": "Python基础教程", "content": "从零开始学习Python编程语言的基础知识和核心概念"},
-            {"title": "机器学习入门", "content": "了解机器学习的基本原理和常用算法"},
-            {"title": "数据可视化", "content": "使用Python创建美观的数据图表和可视化"},
-            {"title": "Web开发实践", "content": "构建现代化的Web应用程序"}
-        ]
+    if st.session_state.get('current_tab', '个人') == '个人':
+        # #更新card
+        # all_data.set_data("card1")
+        # 从sql获取数据
+        cards_data = all_data.get_data_from_sql("card1")
+        # 检索框
+        search_input_section()
+        # 显示卡片
+        cards_per_page = 4
+        total_cards = len(cards_data)
+        total_pages = (total_cards + cards_per_page - 1) // cards_per_page
+
+        # 初始化分页和计时
+        if 'card_page_idx' not in st.session_state:
+            st.session_state.card_page_idx = 0
+        if 'last_cards_refresh' not in st.session_state:
+            st.session_state.last_cards_refresh = time.time()
+
+        # # 自动翻页（每10秒）
+        # now = time.time()
+        # if now - st.session_state.last_cards_refresh > 5:
+        #     st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
+        #     st.session_state.last_cards_refresh = now
+        #     rerun()
+
+        # 展示当前页的卡片
+        start = st.session_state.card_page_idx * cards_per_page
+        end = start + cards_per_page
+        cards_to_show = cards_data[start:end]
+
+        # 用自定义grid美化
+        st.markdown('<div class="card-grid">', unsafe_allow_html=True)
+        # 两列布局
+        col1, col2 = st.columns(2)
+        for i, card in enumerate(cards_to_show):
+            with col1 if i % 2 == 0 else col2:
+                book_name = card.get('book_name', '默认书名')
+                chunk_name = card.get('chunk_name', '默认章节')
+                with st.container():
+                    st.markdown(f"""
+                    <div class="knowledge-card">
+                        <div class="card-title">{book_name}</div>
+                        <div class="card-content">{chunk_name}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    # if st.button(f"查看详情", key=f"card_{start + i}", use_container_width=True):
+                    # 显示查看详情按钮
+                    if st.button(f"查看详情", key=f"card_{start + i}", use_container_width=True):
+                        # 弹出详情框
+                        with st.expander(f"详情: {card['book_name']}"):
+                            st.write(f"**库名**: {card['book_name']}")
+                            st.write(f"**章节名称**: {card['chunk_name']}")
+                            st.write(f"**内容**: {card['content']}")
+                            
+                            # 显示每个point的难度级别
+                            for point in card['points']:
+                                st.write(f"**知识点**: {point['point']}, **难度级别**: {point['difficulty']}")
+
+        # 上一页/下一页按钮 + 页码
+        prev_col, page_col, next_col = st.columns([1,3,1])
+        with prev_col:
+            if st.button("上一页", key="prev_page"):
+                st.session_state.card_page_idx = (st.session_state.card_page_idx - 1) % total_pages
+                st.session_state.last_cards_refresh = time.time()
+                rerun()
+        with next_col:
+            if st.button("下一页", key="next_page"):
+                st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
+                st.session_state.last_cards_refresh = time.time()
+                rerun()
+        with page_col:
+            st.markdown(
+                f"<div style='text-align:center; font-size:16px; margin-top:10px;'>"
+                f"第 <b>{st.session_state.card_page_idx + 1}</b> / <b>{total_pages}</b> 页"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
     elif st.session_state.current_tab == '知识库':
-        cards_data = [
-            {"title": "技术文档", "content": "各种编程语言和框架的官方文档"},
-            {"title": "学习资源", "content": "精选的在线课程和教程资源"},
-            {"title": "代码示例", "content": "实用的代码片段和项目模板"},
-            {"title": "最佳实践", "content": "行业标准和开发最佳实践指南"}
-        ]
-    else:  # 社区
-        cards_data = [
-            {"title": "热门讨论", "content": "社区中最受关注的技术话题讨论"},
-            {"title": "项目分享", "content": "用户分享的优秀开源项目"},
-            {"title": "经验交流", "content": "开发者们的实战经验分享"},
-            {"title": "问答互助", "content": "技术问题的解答和互助"}
-        ]
-    
-    st.markdown(f"### 📋 {st.session_state.current_tab}推荐")
-    
-    # 创建两列布局
-    col1, col2 = st.columns(2)
-    
-    for i, card in enumerate(cards_data):
-        with col1 if i % 2 == 0 else col2:
-            with st.container():
-                st.markdown(f"""
-                <div class="knowledge-card">
-                    <div class="card-title">{card['title']}</div>
-                    <div class="card-content">{card['content']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                if st.button(f"查看详情", key=f"card_{i}", use_container_width=True):
-                    st.session_state.chat_mode = True
-                    st.session_state.chat_history = [
-                        {"role": "user", "content": f"告诉我更多关于{card['title']}的信息"},
-                        {"role": "assistant", "content": f"关于{card['title']}：{card['content']}。这里是更详细的信息..."}
-                    ]
+        database = all_data.get_data_from_sql("card2")
+        cards = all_data.get_data_from_sql("card1")
+        # 知识库每页显示数量
+        DB_PAGE_SIZE = 4
+        CARD_PAGE_SIZE = 4
+        # ============ 页面跳转 ============
+        if st.session_state.page == "database":
+            render_database(database, cards, DB_PAGE_SIZE, CARD_PAGE_SIZE)
+        elif st.session_state.page == "cards":
+            render_cards(database, cards, DB_PAGE_SIZE, CARD_PAGE_SIZE)
+        elif st.session_state.page == "detail":
+            render_detail(database, cards, DB_PAGE_SIZE, CARD_PAGE_SIZE)
+    elif st.session_state.current_tab == '社区':
+        community_posts = all_data.get_data_from_sql("card3")
+        POST_PAGE_SIZE = 4
+        COMMENT_PAGE_SIZE = 4
+        # ============ 路由 ============
+        if st.session_state.page == "community":
+            render_community(community_posts, POST_PAGE_SIZE, COMMENT_PAGE_SIZE)
+        elif st.session_state.page == "post":
+            render_post(community_posts, POST_PAGE_SIZE, COMMENT_PAGE_SIZE)
+        elif st.session_state.page == "comment":
+            render_comment(community_posts, POST_PAGE_SIZE, COMMENT_PAGE_SIZE)
+
 
 # 聊天界面
 def render_chat_interface():
     st.markdown("### 💬 智能对话")
-    
     # 返回按钮
     if st.button("⬅️ 返回卡片视图"):
         st.session_state.chat_mode = False
         st.rerun()
-    
     # 聊天历史
     chat_container = st.container()
     with chat_container:
@@ -349,72 +349,73 @@ def render_chat_interface():
                 </div>
                 """, unsafe_allow_html=True)
 
-# 输入区域
-def render_input_section():
-    st.markdown('<div class="input-section">', unsafe_allow_html=True)
-    
-    # 搜索输入框
-    user_input = st.text_input("💭 输入您的问题或搜索内容...", key="user_input", placeholder="请输入您想了解的内容")
-    
-    # 文件上传区域
-    col1, col2, col3 = st.columns([1, 1, 2])
-    
+def chat_input_section():
+    st.markdown('', unsafe_allow_html=True)
+    col1, col2 = st.columns([5, 1])  # 左宽右窄
+
     with col1:
-        uploaded_image = st.file_uploader("📷 上传图片", type=['png', 'jpg', 'jpeg'], key="image_upload")
-    
+        user_input = st.text_input(
+            "💭 输入您的问题或搜索内容...",
+            key="chat_input",
+            placeholder="请输入您想了解的内容",
+            label_visibility="collapsed"  # 隐藏label
+        )
     with col2:
-        uploaded_file = st.file_uploader("📄 上传文件", type=['pdf', 'txt', 'docx'], key="file_upload")
-    
-    with col3:
-        if st.button("🚀 发送", use_container_width=True, type="primary"):
-            if user_input:
-                # 切换到聊天模式
-                st.session_state.chat_mode = True
-                
-                # 添加用户消息
-                st.session_state.chat_history.append({
-                    "role": "user", 
-                    "content": user_input
-                })
-                
-                # 模拟AI回复
-                time.sleep(1)  # 模拟处理时间
-                ai_response = f"我理解您想了解关于'{user_input}'的信息。这是一个很好的问题！让我为您详细解答..."
-                
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": ai_response
-                })
-                
-                # 添加到搜索历史
-                if user_input not in st.session_state.search_history:
-                    st.session_state.search_history.insert(0, user_input)
-                    if len(st.session_state.search_history) > 10:
-                        st.session_state.search_history.pop()
-                
-                st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+        send_clicked = st.button("🚀 发送", use_container_width=True)
+    # 仅在点击按钮且有输入时触发
+    if send_clicked and user_input:
+        # 切换到聊天模式
+        st.session_state.chat_mode = True
+        # 添加用户消息
+        st.session_state.chat_history.append({
+            "role": "user", 
+            "content": user_input
+        })
+
+        # 模拟AI回复
+        time.sleep(1)
+        ai_response = f"我理解您想了解关于'{user_input}'的信息。这是一个很好的问题！让我为您详细解答..."
+
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": ai_response
+        })
+
+        # 添加到搜索历史
+        if user_input not in st.session_state.search_history:
+            st.session_state.search_history.insert(0, user_input)
+            if len(st.session_state.search_history) > 10:
+                st.session_state.search_history.pop()
+        st.rerun()
 
 # 主函数
 def main():
+    st.markdown("""
+    <style>
+    /* 隐藏 Streamlit 默认的菜单和页脚 */
+    #MainMenu, footer, header {
+        visibility: hidden;
+    }
+    /* 去除主内容区的 padding 顶部间距 */
+    .block-container {
+        padding-top: 0rem !important;  /* 你可以调成0rem或1rem，看需求 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
     load_css()
     init_session_state()
-    
     # 渲染顶部导航
     render_top_nav()
-    
     # 渲染侧边栏
     render_sidebar()
-    
     # 主内容区域
     if st.session_state.chat_mode:
         render_chat_interface()
     else:
         render_knowledge_cards()
+    # 聊天输入区域
+    if st.session_state.get('current_tab', '个人') == '个人':
+        chat_input_section()
     
-    # 输入区域
-    render_input_section()
-
 if __name__ == "__main__":
     main()
