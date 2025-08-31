@@ -1,5 +1,6 @@
 # from cgi import test
 import collections
+from urllib import request
 # from heapq import merge
 # from pickle import NONE
 # from BookMonster.agent.app import gb_state
@@ -357,8 +358,7 @@ class Environment():
         print("generate monster request: ", request)
         images = request.get('images_path',"")
         prompt = request.get('prompt_path', "")
-        pdf_path = request.get('pdf_path',"")
-        
+        pdf_path = request.get('file_path',"")
         try:
             print("Processing generate_cards..")
             log_operation("Processing generate_bookmonster prompt:", prompt)
@@ -595,7 +595,15 @@ async def chat(request : dict):
        "response": ""
     }
     print("chat request: ", request)
-    
+
+    image_path = request.get("image_path","")
+    file_path = request.get("file_path","")
+    if file_path:
+        request['file_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
+    if image_path:
+        request['image_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",image_path)
+    print("request: ", request)
+
     try:
         response = await env.pipeline(request)
     except Exception as e:
@@ -603,6 +611,82 @@ async def chat(request : dict):
         logging.error(f"chat error: {str(e)}")
         raise HTTPException(status_code=422, detail=f"chat failed:  {str(e)}")
     return response
+
+
+
+
+
+
+
+
+@app.post("/chat_v2")
+async def chat_v2(
+    pdf_path: UploadFile = File(...),
+    prompt: str="",
+    image_path: UploadFile = File(...),
+):
+    # chat dialog task.
+    """
+    调用Ollama生成回复
+    输入request:
+        {
+            "pdf_path": "pdf path",
+            "image_path": "image path",
+            "prompt": "description",
+        }
+    
+    最终输出response 格式示例：
+    {
+        "status": "success",
+        response: 
+    }
+
+    """
+    response = {
+       "status":"success",
+       "response": ""
+    }
+
+
+    file_path = f"../front-end-react-v3/public/uploads/{pdf_path.filename}"
+    file_content = await pdf_path.read()
+    
+    with open(file_path, "wb") as f:
+        f.write(file_content)
+    print(f"file_path: {file_path} written")
+    
+    image_path = f"../front-end-react-v3/public/uploads/{image_path.filename}"
+    image_content = await image_path.read()
+    
+    with open(image_path, "wb") as f:
+        f.write(image_content)
+    
+    print(f"image_path: {image_path} written")
+    
+    request = {
+        "pdf_path": pdf_path,
+        "image_path": image_path,
+        "prompt": prompt,
+    }
+    print("chat request: ", request)
+
+    image_path = request.get("image_path","")
+    file_path = request.get("file_path","")
+    if file_path:
+        request['file_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
+    if image_path:
+        request['image_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",image_path)
+    print("request: ", request)
+
+    try:
+        response = await env.pipeline(request)
+    except Exception as e:
+        # raise HTTPException(status_code=422, detail=f"生成失败: {str(e)}")
+        logging.error(f"chat error: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"chat failed:  {str(e)}")
+    return response
+
+
 
 
 
