@@ -1,12 +1,13 @@
 import streamlit as st
 import time
+import os
 from datetime import datetime
 import base64
 from streamlit_autorefresh import st_autorefresh
-
 from css.css import load_css
-from get_data.get_data import get_data_from_es
-from utils.utils import rerun
+from get_data.get_data import all_data
+from utils.utils import rerun, render_database, render_cards, render_detail, render_community, render_post, render_comment
+from send_kg.send import send_kg
 
 # 页面配置
 st.set_page_config(
@@ -17,7 +18,13 @@ st.set_page_config(
 )
 
 # 每隔5秒自动刷新一次页面（10000毫秒）
-st_autorefresh(interval=5000, key="auto_refresh")
+# st_autorefresh(interval=5000, key="auto_refresh")
+
+
+# 设置保存文件的目录
+save_directory = "../data"
+if not os.path.exists(save_directory):
+    os.makedirs(save_directory)
 
 # 初始化会话状态
 def init_session_state():
@@ -41,6 +48,30 @@ def init_session_state():
             'bio': '你好呀，我是KnowledgeMaster，一款让知识库”主动““讨好”您的AI Agent。'
         }
 
+    # ============ 页面状态管理 ============
+    if "page" not in st.session_state:
+        st.session_state.page = "database"  # "database", "cards", "detail"
+    if "selected_book" not in st.session_state:
+        st.session_state.selected_book = None
+    if "selected_card" not in st.session_state:
+        st.session_state.selected_card = None
+    if "db_page_num" not in st.session_state:
+        st.session_state.db_page_num = 1
+    if "card_page_num" not in st.session_state:
+        st.session_state.card_page_num = 1
+
+    # ============ 状态管理 ============
+    if "page" not in st.session_state:
+        st.session_state.page = "community"  # community, post, comment
+    if "selected_post" not in st.session_state:
+        st.session_state.selected_post = None
+    if "selected_comment" not in st.session_state:
+        st.session_state.selected_comment = None
+    if "post_page_num" not in st.session_state:
+        st.session_state.post_page_num = 1
+    if "comment_page_num" not in st.session_state:
+        st.session_state.comment_page_num = 1
+
 # 顶部导航栏
 def render_top_nav():
     st.markdown("""
@@ -55,11 +86,13 @@ def render_top_nav():
         if st.button("知识库", key="tab_knowledge", use_container_width=True):
             st.session_state.current_tab = '知识库'
             st.session_state.chat_mode = False
+            st.session_state.page = "database"  # 点击“社区”时更新页面状态
     
     with col3:
         if st.button("社区", key="tab_community", use_container_width=True):
             st.session_state.current_tab = '社区'
             st.session_state.chat_mode = False
+            st.session_state.page = "community"  # 点击“社区”时更新页面状态
     
     st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -93,9 +126,36 @@ def render_input_section():
         if st.button("⬆", use_container_width=True, type="primary"):
             if user_input or uploaded_image or uploaded_file:
                 # 上传到后端逻辑
-                print("你输入的文字为：", user_input)
-                print("你输入的图片为：", uploaded_image)
-                print("你输入的文件为：", uploaded_file)
+                # print("你输入的文字为：", user_input)
+                # print("你输入的图片为：", uploaded_image)
+                # print("你输入的文件为：", uploaded_file)
+                image_path = ""
+                file_path = ""
+                if uploaded_image is not None:
+                    file_name = os.path.basename(uploaded_image.name)
+                    # 获取文件内容（以二进制形式）
+                    file_content = uploaded_image.getvalue()
+                    # 拼接文件保存路径
+                    save_path = os.path.join(save_directory, file_name)
+                    # print("save_path:"+save_path)
+                    image_path = os.path.abspath(save_path)
+                    # 将文件内容写入到指定路径
+                    with open(save_path, "wb") as f:
+                        f.write(file_content)
+
+                if uploaded_file is not None:
+                    file_name = os.path.basename(uploaded_file.name)
+                    # 获取文件内容（以二进制形式）
+                    file_content = uploaded_file.getvalue()
+                    # 拼接文件保存路径
+                    save_path = os.path.join(save_directory, file_name)
+                    file_path = os.path.abspath(save_path)
+                    # 将文件内容写入到指定路径
+                    with open(save_path, "wb") as f:
+                        f.write(file_content)
+                # 存知识库
+                send_kg(text = user_input, picture_path = image_path, file_path = file_path)
+
                 st.rerun()
 
 # 侧边栏
@@ -161,80 +221,117 @@ def search_input_section():
 
 # 知识卡片网格
 def render_knowledge_cards():
-    cards_data = get_data_from_es()
-    search_input_section()
-    cards_per_page = 4
-    total_cards = len(cards_data)
-    total_pages = (total_cards + cards_per_page - 1) // cards_per_page
+    if st.session_state.get('current_tab', '个人') == '个人':
+        # #更新card
+        # all_data.set_data("card1")
+        # 从sql获取数据
+        cards_data = all_data.get_data_from_sql("card1")
+        # 检索框
+        search_input_section()
+        # 显示卡片
+        cards_per_page = 4
+        total_cards = len(cards_data)
+        total_pages = (total_cards + cards_per_page - 1) // cards_per_page
 
-    # 初始化分页和计时
-    if 'card_page_idx' not in st.session_state:
-        st.session_state.card_page_idx = 0
-    if 'last_cards_refresh' not in st.session_state:
-        st.session_state.last_cards_refresh = time.time()
-
-    # 自动翻页（每10秒）
-    now = time.time()
-    if now - st.session_state.last_cards_refresh > 5:
-        st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
-        st.session_state.last_cards_refresh = now
-        rerun()
-
-    # 展示当前页的卡片
-    start = st.session_state.card_page_idx * cards_per_page
-    end = start + cards_per_page
-    cards_to_show = cards_data[start:end]
-
-    # 用自定义grid美化
-    st.markdown('<div class="card-grid">', unsafe_allow_html=True)
-    # 两列布局
-    col1, col2 = st.columns(2)
-    for i, card in enumerate(cards_to_show):
-        with col1 if i % 2 == 0 else col2:
-            with st.container():
-                st.markdown(f"""
-                <div class="knowledge-card">
-                    <div class="card-title">{card['title']}</div>
-                    <div class="card-content">{card['content']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button(f"查看详情", key=f"card_{start + i}", use_container_width=True):
-                    st.session_state.chat_mode = True
-                    st.session_state.chat_history = [
-                        {"role": "user", "content": f"告诉我更多关于{card['title']}的信息"},
-                        {"role": "assistant", "content": f"关于{card['title']}：{card['content']}。这里是更详细的信息..."}
-                    ]
-    
-    # 上一页/下一页按钮 + 页码
-    prev_col, page_col, next_col = st.columns([1,3,1])
-    with prev_col:
-        if st.button("上一页", key="prev_page"):
-            st.session_state.card_page_idx = (st.session_state.card_page_idx - 1) % total_pages
+        # 初始化分页和计时
+        if 'card_page_idx' not in st.session_state:
+            st.session_state.card_page_idx = 0
+        if 'last_cards_refresh' not in st.session_state:
             st.session_state.last_cards_refresh = time.time()
-            rerun()
-    with next_col:
-        if st.button("下一页", key="next_page"):
-            st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
-            st.session_state.last_cards_refresh = time.time()
-            rerun()
-    with page_col:
-        st.markdown(
-            f"<div style='text-align:center; font-size:16px; margin-top:10px;'>"
-            f"第 <b>{st.session_state.card_page_idx + 1}</b> / <b>{total_pages}</b> 页"
-            f"</div>",
-            unsafe_allow_html=True
-        )
+
+        # # 自动翻页（每10秒）
+        # now = time.time()
+        # if now - st.session_state.last_cards_refresh > 5:
+        #     st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
+        #     st.session_state.last_cards_refresh = now
+        #     rerun()
+
+        # 展示当前页的卡片
+        start = st.session_state.card_page_idx * cards_per_page
+        end = start + cards_per_page
+        cards_to_show = cards_data[start:end]
+
+        # 用自定义grid美化
+        st.markdown('<div class="card-grid">', unsafe_allow_html=True)
+        # 两列布局
+        col1, col2 = st.columns(2)
+        for i, card in enumerate(cards_to_show):
+            with col1 if i % 2 == 0 else col2:
+                book_name = card.get('book_name', '默认书名')
+                chunk_name = card.get('chunk_name', '默认章节')
+                with st.container():
+                    st.markdown(f"""
+                    <div class="knowledge-card">
+                        <div class="card-title">{book_name}</div>
+                        <div class="card-content">{chunk_name}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    # if st.button(f"查看详情", key=f"card_{start + i}", use_container_width=True):
+                    # 显示查看详情按钮
+                    if st.button(f"查看详情", key=f"card_{start + i}", use_container_width=True):
+                        # 弹出详情框
+                        with st.expander(f"详情: {card['book_name']}"):
+                            st.write(f"**库名**: {card['book_name']}")
+                            st.write(f"**章节名称**: {card['chunk_name']}")
+                            st.write(f"**内容**: {card['content']}")
+                            
+                            # 显示每个point的难度级别
+                            for point in card['points']:
+                                st.write(f"**知识点**: {point['point']}, **难度级别**: {point['difficulty']}")
+
+        # 上一页/下一页按钮 + 页码
+        prev_col, page_col, next_col = st.columns([1,3,1])
+        with prev_col:
+            if st.button("上一页", key="prev_page"):
+                st.session_state.card_page_idx = (st.session_state.card_page_idx - 1) % total_pages
+                st.session_state.last_cards_refresh = time.time()
+                rerun()
+        with next_col:
+            if st.button("下一页", key="next_page"):
+                st.session_state.card_page_idx = (st.session_state.card_page_idx + 1) % total_pages
+                st.session_state.last_cards_refresh = time.time()
+                rerun()
+        with page_col:
+            st.markdown(
+                f"<div style='text-align:center; font-size:16px; margin-top:10px;'>"
+                f"第 <b>{st.session_state.card_page_idx + 1}</b> / <b>{total_pages}</b> 页"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+    elif st.session_state.current_tab == '知识库':
+        database = all_data.get_data_from_sql("card2")
+        cards = all_data.get_data_from_sql("card1")
+        # 知识库每页显示数量
+        DB_PAGE_SIZE = 4
+        CARD_PAGE_SIZE = 4
+        # ============ 页面跳转 ============
+        if st.session_state.page == "database":
+            render_database(database, cards, DB_PAGE_SIZE, CARD_PAGE_SIZE)
+        elif st.session_state.page == "cards":
+            render_cards(database, cards, DB_PAGE_SIZE, CARD_PAGE_SIZE)
+        elif st.session_state.page == "detail":
+            render_detail(database, cards, DB_PAGE_SIZE, CARD_PAGE_SIZE)
+    elif st.session_state.current_tab == '社区':
+        community_posts = all_data.get_data_from_sql("card3")
+        POST_PAGE_SIZE = 4
+        COMMENT_PAGE_SIZE = 4
+        # ============ 路由 ============
+        if st.session_state.page == "community":
+            render_community(community_posts, POST_PAGE_SIZE, COMMENT_PAGE_SIZE)
+        elif st.session_state.page == "post":
+            render_post(community_posts, POST_PAGE_SIZE, COMMENT_PAGE_SIZE)
+        elif st.session_state.page == "comment":
+            render_comment(community_posts, POST_PAGE_SIZE, COMMENT_PAGE_SIZE)
 
 
 # 聊天界面
 def render_chat_interface():
     st.markdown("### 💬 智能对话")
-    
     # 返回按钮
     if st.button("⬅️ 返回卡片视图"):
         st.session_state.chat_mode = False
         st.rerun()
-    
     # 聊天历史
     chat_container = st.container()
     with chat_container:
@@ -317,7 +414,8 @@ def main():
     else:
         render_knowledge_cards()
     # 聊天输入区域
-    chat_input_section()
+    if st.session_state.get('current_tab', '个人') == '个人':
+        chat_input_section()
     
 if __name__ == "__main__":
     main()
