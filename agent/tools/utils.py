@@ -153,19 +153,26 @@ def send_email(recipient:str, subject:str, body:str) ->json:
     msg["Subject"] = config['subject']
     
     # 添加邮件正文
-    msg.attach(MIMEText(body, "plain"))
+    text_type = "plain" if not body.startswith("<html>") else "html"
+    msg.attach(MIMEText(body, text_type))
+    
     
     try:
         # 创建安全连接
         context = ssl.create_default_context()
         
         # 连接服务器并发送邮件
+        # with smtplib.SMTP_SSL(smtp_server) as server:
         with smtplib.SMTP(smtp_server, port) as server:
             server.ehlo()
             server.starttls(context=context)
             server.ehlo()
+            print("loging ...")
             server.login(sender_email, password)
+            print("sending mail")
             server.sendmail(sender_email, receiver_email, msg.as_string())
+            print("quit")
+            server.quit()
         
         print("邮件发送成功!")
         # return True

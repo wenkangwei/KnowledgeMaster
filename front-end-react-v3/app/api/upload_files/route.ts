@@ -105,6 +105,11 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     console.log("upload file POST", formData);
     const file = formData.get("file") as File;
+
+    if (!file) {
+      return NextResponse.json({ status: "success", files: [''] });;
+}
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
     await fs.writeFile(`./public/uploads/${file.name}`, buffer);

@@ -49,6 +49,7 @@ class Agent(BaseAgent):
         ollama_api_key = "ollama"
         base_url = ollama_base_url
         api_key = ollama_api_key
+        self.context = context
         if context:
             model_config = context.config['model'].get(model,{})
             base_url = model_config.get["url"] if model_config.get("url","") else ollama_base_url

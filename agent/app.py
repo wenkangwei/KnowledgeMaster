@@ -30,6 +30,19 @@ import time
 from agent import *
 import asyncio
 from constant import *
+from tools.utils import *
+# # Debug
+
+from pyngrok import ngrok
+# 使用 ngrok 连接指定端口，获取公共 URL
+# 这里假设你已经按照前面的方法设置了 NGROK_AUTH_TOKEN（推荐）
+# 如果没有，以下代码仍会运行，但每次连接的 URL 都会变化且有限制
+port = 8000
+front_end_port=3000
+public_url = ngrok.connect(front_end_port, bind_tls=True).public_url
+print(f" * Public URL: {public_url}")
+
+
 
 tmp_data={"maxHp":"10","skill":[{"question":["202304010001","pikaqiu的属性是什么？",1],"answer1":"雷属性","answer2":"高铁属性","answer3":"水属性","correct_answer":"雷属性"},{"question":["202304010002","pikaqiu喜欢看的书籍是什么？",2],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"},{"question":["202304010003","pikaqiu的主人叫什么名字？",3],"answer1":"小k","answer2":"小明","answer3":"小红","correct_answer":"小k"},{"question":["202304010004","pikaqiu的主人是做什么的？",4],"answer1":"算法工程师","answer2":"数据分析师","answer3":"产品经理","correct_answer":"算法工程师"},{"question":["202304010005","pikaqiu的主人喜欢看的书籍是什么？",5],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"},{"question":["202304010006","pikaqiu的主人的主人叫什么名字？",6],"answer1":"小k","answer2":"小明","answer3":"小红","correct_answer":"小k"},{"question":["202304010007","pikaqiu的主人的主人是做什么的？",7],"answer1":"算法工程师","answer2":"数据分析师","answer3":"产品经理","correct_answer":"算法工程师"},{"question":["202304010008","pikaqiu的主人的主人喜欢看的书籍是什么？",8],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"},{"question":["202304010009","pikaqiu的主人的主人的主人叫什么名字？",9],"answer1":"小k","answer2":"小明","answer3":"小红","correct_answer":"小k"},{"question":["202304010010","pikaqiu的主人的主人的主人是做什么的？",10],"answer1":"算法工程师","answer2":"数据分析师","answer3":"产品经理","correct_answer":"算法工程师"},{"question":["202304010011","pikaqiu的主人的主人的主人喜欢看的书籍是什么？",1],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"},{"question":["202304010012","pikaqiu的主人的主人的主人的主人叫什么名字？",2],"answer1":"小k","answer2":"小明","answer3":"小红","correct_answer":"小k"},{"question":["202304010013","pikaqiu的主人的主人的主人的主人是做什么的？",3],"answer1":"算法工程师","answer2":"数据分析师","answer3":"产品经理","correct_answer":"算法工程师"},{"question":["202304010014","pikaqiu的主人的主人的主人的主人喜欢看的书籍是什么？",4],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"},{"question":["202304010015","pikaqiu的主人的主人的主人的主人的主人叫什么名字？",5],"answer1":"小k","answer2":"小明","answer3":"小红","correct_answer":"小k"},{"question":["202304010016","pikaqiu的主人的主人的主人的主人的主人是做什么的？",6],"answer1":"算法工程师","answer2":"数据分析师","answer3":"产品经理","correct_answer":"算法工程师"},{"question":["202304010017","pikaqiu的主人的主人的主人的主人的主人喜欢看的书籍是什么？",7],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"},{"question":["202304010018","pikaqiu的主人的主人的主人的主人的主人的主人叫什么名字？",8],"answer1":"小k","answer2":"小明","answer3":"小红","correct_answer":"小k"},{"question":["202304010019","pikaqiu的主人的主人的主人的主人的主人的主人是做什么的？",9],"answer1":"算法工程师","answer2":"数据分析师","answer3":"产品经理","correct_answer":"算法工程师"},{"question":["202304010020","pikaqiu的主人的主人的主人的主人的主人的主人喜欢看的书籍是什么？",10],"answer1":"钢铁就是力量","answer2":"钢铁是怎样炼成的","answer3":"钢铁的未来","correct_answer":"钢铁就是力量"}],"health_state":"health","attribute":"雷属性","name":"pikaqiu","level":"5","monster_image":"/character_images/placeholder-logo.png"}
 # 初始化FastAPI
@@ -168,41 +181,39 @@ class Environment():
         self.task_queue[task_id] = []
         self.task_status[task_id] = {"status": "running"}
         self.current_task_id = task_id
-
-
         # test elastic search
-        book_id = 'mmoe.pdf'
-        test_data = {
-            "1234": {
-            "chunk_id": "1234",
-            "emb_id": "mmoe.pdf_1234",
-            "content": "React组件从创建到销毁的完整过程，包括挂载、更新和卸载三个阶段。",
-            "points": [
-            { "point": "组件挂载过程", "difficulty": "中级" },
-            { "point": "状态更新机制", "difficulty": "中级" },
-            { "point": "性能优化技巧", "difficulty": "高级" },
-            ],
-        },
+        # book_id = 'mmoe.pdf'
+        # test_data = {
+        #     "1234": {
+        #     "chunk_id": "1234",
+        #     "emb_id": "mmoe.pdf_1234",
+        #     "content": "React组件从创建到销毁的完整过程，包括挂载、更新和卸载三个阶段。",
+        #     "points": [
+        #     { "point": "组件挂载过程", "difficulty": "中级" },
+        #     { "point": "状态更新机制", "difficulty": "中级" },
+        #     { "point": "性能优化技巧", "difficulty": "高级" },
+        #     ],
+        # },
 
-        "45678":{
-            "chunk_id": "45678",
-            "emb_id": "mmoe.pdf_44567",
-            "content": "6666React组件从创建到销毁的完整过程，包括挂载、更新和卸载三个阶段。",
-            "points": [
-            { "point": "挂载过程", "difficulty": "中级" },
-            { "point": "状态机制", "difficulty": "中级" },
-            { "point": "性能技巧", "difficulty": "高级" },
-            ],
-        },
-        }
+        # "45678":{
+        #     "chunk_id": "45678",
+        #     "emb_id": "mmoe.pdf_44567",
+        #     "content": "6666React组件从创建到销毁的完整过程，包括挂载、更新和卸载三个阶段。",
+        #     "points": [
+        #     { "point": "挂载过程", "difficulty": "中级" },
+        #     { "point": "状态机制", "difficulty": "中级" },
+        #     { "point": "性能技巧", "difficulty": "高级" },
+        #     ],
+        # },
+        # }
 
-        print("Create Doc..")
-        ret = self.generation_agent.memory_client.es_client.batch_create_doc(book_id, test_data)
-        print("Searching Doc.. : ", book_id)
-        # result = self.generation_agent.memory_client.es_client.search(index= book_id, keyword=book_id, fields=['_index','_id'])
-        # result = self.generation_agent.memory_client.es_client.get_all_documents_search_after(book_id)
-        result = self.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
-        print("test search result: ", result)
+        # print("Create Doc..")
+        # ret = self.generation_agent.memory_client.es_client.batch_create_doc(book_id, test_data)
+        # print("Searching Doc.. : ", book_id)
+        # # result = self.generation_agent.memory_client.es_client.search(index= book_id, keyword=book_id, fields=['_index','_id'])
+        # # result = self.generation_agent.memory_client.es_client.get_all_documents_search_after(book_id)
+        # result = self.generation_agent.memory_client.es_client._get_all_documents_scroll(book_id)
+        # print("test search result: ", result)
 
         try:
             print("start generate_qa")
@@ -275,16 +286,33 @@ class Environment():
                 doc_dict[doc_id] = doc
             
             book_desc = chunks[0]['content']
+            book_title = chunks[0]['title']
             if not book_desc:
                 book_desc = chunks[0]['title']
+            book_desc = asyncio.run(self.scheduel_agent.chat_with_tools([{"role": "user", "content": "请对下面内容用中文100字内进行总结\n"+book_desc}], tools_dict)) 
             print("Book_name: ", book_nm, ", book_desc: ", book_desc, "index_name: ", index_name)
             ret = self.generation_agent.memory_client.es_client.batch_create_doc(index_name, doc_dict, book_nm, book_desc)
             print("QA doc Saved with ret = ", ret)
 
             
-
+            rec_email = self.scheduel_agent.context.config.get("user_profile",{}).get("email", "1904832812@qq.com")
+            print("Sending email to ", rec_email)
             #Send email to user
-            # self.scheduel_agent.chat_with_tools()
+            email_info = f"""请调用tools发送邮件到 {rec_email} 提醒用户来APP回顾知识库。
+            请你根据下面知识库的信息取一个合适的邮件title， 并且title以 ‘KnowledgeMaster-’ 开头<这里填入你的>。 邮件的body应该根据知识库信息写一段吸引人的内容
+            邮件要是HTML 格式，必须以<html> 开头， 以 </html>结尾
+            以下是知识库的信息：
+            - 知识库书名: {book_nm}
+            - 知识库APP链接: {public_url}
+            - 知识库第一段文本: {book_title +"\n" + book_desc} 
+            """
+            chat_message=[
+                {"role": "system", "content": "你是一个知识库助手，能解析用户知识库后通过发送邮件给用户， 有必要的话可以调用提供给你的tools"},
+                {"role": "user", "content": email_info}
+            ]
+            print("email_info = \n", email_info)
+            res = asyncio.run(self.scheduel_agent.chat_with_tools(chat_message, tools_dict)) 
+            print("chat_with_tools res = ", res)
            
         except Exception as e:
             print("generate_qa Exception: ", str(e))
@@ -602,7 +630,7 @@ async def chat(request : dict):
         request['pdf_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",file_path)
     if image_path:
         request['image_path'] = os.path.join("/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3",image_path)
-    request['file_path'] = request['pdf_path']
+    request['file_path'] = request.get('pdf_path',"")
     print("request: ", request)
 
     try:
@@ -703,12 +731,12 @@ async def debug_endpoint(raw_request: dict):
 
 if __name__ == "__main__":
     # # Debug
-    port = 8000
-    from pyngrok import ngrok
-    # 使用 ngrok 连接指定端口，获取公共 URL
-    # 这里假设你已经按照前面的方法设置了 NGROK_AUTH_TOKEN（推荐）
-    # 如果没有，以下代码仍会运行，但每次连接的 URL 都会变化且有限制
-    public_url = ngrok.connect(port, bind_tls=True).public_url
+    # port = 8000
+    # from pyngrok import ngrok
+    # # 使用 ngrok 连接指定端口，获取公共 URL
+    # # 这里假设你已经按照前面的方法设置了 NGROK_AUTH_TOKEN（推荐）
+    # # 如果没有，以下代码仍会运行，但每次连接的 URL 都会变化且有限制
+    # public_url = ngrok.connect(port, bind_tls=True).public_url
     print(f" * Public URL: {public_url}")
     import uvicorn
     os.makedirs("uploads", exist_ok=True)

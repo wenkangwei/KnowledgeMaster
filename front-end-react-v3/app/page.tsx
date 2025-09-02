@@ -831,6 +831,9 @@ export default function KnowledgeChatApp() {
                 ))}
               </div>
             </div>
+            <div className="p-4 border-b bg-card">
+              <h2 className="text-lg font-semibold mb-3">知识卡片</h2>
+            </div>
             {renderKnowledgeCards()}
           </div>
         )
@@ -924,6 +927,16 @@ export default function KnowledgeChatApp() {
                     className="text-sm resize-none"
                     rows={2}
                   />
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute left-80 top-1/2 transform -translate-y-1/2 z-10 transition-all duration-300"
+                    style={{ left: sidebarCollapsed ? "0" : "320px" }}
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                  >
+                    
+                  </Button>
                 </div>
               </CardContent>
             </Card>
