@@ -33,13 +33,15 @@ from constant import *
 from tools.utils import *
 # # Debug
 
+from tools.webpage_crawler import webpage_crawler
 from pyngrok import ngrok
 # 使用 ngrok 连接指定端口，获取公共 URL
 # 这里假设你已经按照前面的方法设置了 NGROK_AUTH_TOKEN（推荐）
 # 如果没有，以下代码仍会运行，但每次连接的 URL 都会变化且有限制
 port = 8000
-front_end_port=3000
-public_url = ngrok.connect(front_end_port, bind_tls=True).public_url
+# front_end_port=3000
+# public_url = ngrok.connect(port, bind_tls=True).public_url
+public_url="http://localhost:8000"
 print(f" * Public URL: {public_url}")
 
 
@@ -328,16 +330,24 @@ class Environment():
         1. generation_cards: 用户需要把文档文件/图片/需要总结的文字/网页链接 多种数据上传然后调用我们这边的生成知识卡片的功能
         2. chat: 用户需要对以往生成的知识卡片进行复习,或者聊天服务
         3. unkown: 如果你识别不出来，就返回unknown
-        要求： 你只能从返回这个列表[generation_cards, chat, unknown]里的其中一个选项， 不能返回任何无关的字符内容
+        返回格式要求：
+        1. 你只能以下面的json格式返回，以'{'开始 以'}'结尾， 并且json里的key有option和urls
+            json格式： {"option": "", "urls": []} 
+        2. option的值你只能从返回这个列表[generation_cards, chat, unknown]里的其中一个选项， 不能返回任何无关的字符内容
+        3. urls的值是一个list, 你准确提取要把用户输入的内容里要解析的一个或多个url, 并把url以字符串形式放到这个list里面。 如果找不到url， 就返回空list
         """
         result= await self.recog_agent.chat([{"role":"system", "content": prompt},
                                 {"role":"user", "content":inputs}
                                 ])
         result = result.strip()
         log_operation(f"result:", result)
-        if result not in  ["generation_cards",'chat', "unknown"]:
-            result = "unknown"
+        # res = result.strip().replace("~~~", "")
+        res = result.strip().replace("```json\n", '').replace("```", '')
+        result = json.loads(res)
+        if result.get("option", "") not in  ["generation_cards",'chat', "unknown"]:
+            result['option'] = "unknown"
         return result
+    
     def search(self, query):
         """
         [{ "content": chunk content,
@@ -349,7 +359,7 @@ class Environment():
         points = self.generation_agent.memory_client.es_client.search(index, query,fields=['point','content'])
         return points
 
-    def generate_cards(self, request : dict):
+    async def generate_cards(self, request : dict):
         """
         调用Ollama生成回复
         输入request:
@@ -417,14 +427,26 @@ class Environment():
             
             # 调用Ollama的生成API
             print("kl_card_template:  ", kl_card_template)
+            # parse URLs
+            url_sections = []
+            sections= []
+            book_nm = ""
+            for url in request.get("urls",[]):
+                url_res = await webpage_crawler(url, output_file="", mode="wechat")
+                if url_res and 'title' in url_res:
+                    print("url_res title: ", url_res['title'], "\n url_res[content]: ", url_res['content'][:20])
+                    book_nm = book_nm + url_res['title']
+                    url_sections.append(url_res)
             # parse PDF
-            book_nm= pdf_path.split("/")[-1]
-            sections = self.generation_agent.parse_file(pdf_path)
-            print("section size: ", len(sections), "\n section[0]: ", sections[0])
+            if pdf_path:
+                book_nm= pdf_path.split("/")[-1]
+                sections = self.generation_agent.parse_file(pdf_path)
+                print("section size: ", len(sections), "\n section[0]: ", sections[0])
             book_id = hash_to_6digit_sha256(book_nm)
             
             # await gb_state.generate_batch_qa(task_id, sections,template2)
             print("Response result:", str(ret_response))
+            sections = url_sections + sections
             thread = threading.Thread(target=self.generate_qa, args=(book_id,book_nm, sections,kl_card_template, request))
             thread.start()
             ret_response["response"] = "generating knowledge cards. Please wait for few seconds."
@@ -442,12 +464,14 @@ class Environment():
             "status":"success"
         }
         chat_message = []
-        recog_res = await self.intention_recog(inputs)
+        intention_res = await self.intention_recog(inputs)
+        recog_res = intention_res.get("option", "unknown")
+        request['urls'] = intention_res.get("urls",[])
         if recog_res ==  "generation_cards":
             if not self.current_task_id or self.task_status[self.current_task_id].get("status","") != "running":
                 print("start generation task in background")
                 # start generation task in background
-                self.generate_cards(request)
+                await self.generate_cards(request)
                 # return response
                 response['response'] = f"开始帮您生成知识库中 task_id: {self.current_task_id} 请稍候再请求生成。 可以先聊聊别的哦~"
                 return response

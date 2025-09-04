@@ -87,7 +87,7 @@ elif [ $mode -eq 3 ];then
 curl -X POST http://localhost:8000/delete_books_list \
   -H "Content-Type: application/json" \
   -d '{
-    "indices": ["995975","mmoe.pdf", "640507","995975","abstract","mmoe.pdf","pdf_1756002381144.pdf","pdf_1756003036115.pdf","pdf_1756003874791.pdf","pdf_1756012414300.pdf"]
+    "indices": ["284938","647931", "48602", "mmoe.pdf", "66965", "915769", "995975"]
   }'
 elif [ $mode -eq 4 ];then
     curl -X POST http://localhost:8000/chat \
@@ -131,6 +131,17 @@ curl -X POST $url/get_database_list \
 
 fi
 
+
+# curl -X POST  
+# -H "Content-Type: application/json"
+# -d ''
+
+
+
+# curl -X POST https://65d9dbc34e5b.ngrok-free.app/chat_v2 \
+#   -F "pdf_path=@/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3/public/uploads/spectral-based-graph-neural-networks_v2.pdf" \
+#   -F "image_path=@/home/wwk/workspace/ai_project/KnowledgeMaster/front-end-react-v3/public/uploads/book_example.jpg" \
+#   -F "prompt=exciting rock indian music"
 #  请求embedding向量测试
 # curl http://localhost:11434/api/embeddings \
 #     -X POST \
